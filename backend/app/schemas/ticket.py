@@ -7,10 +7,6 @@ STATUS_VALIDOS = ["aberto", "em_atendimento", "aguardando", "concluido", "cancel
 
 
 class TicketBase(BaseModel):
-    """
-    Campos básicos de um ticket.
-    Esses campos são usados tanto na entrada quanto na saída.
-    """
     empresa: str
     setor: str
     categoria_nome: str | None = None
@@ -23,14 +19,13 @@ class TicketBase(BaseModel):
     contato_email: EmailStr
     contato_telefone: str
 
-    # ----- Validação de entrada das datas (aceita dd-mm-aaaa ou aaaa-mm-dd) -----
+    # Novos campos (preenchidos pelo servidor normalmente)
+    solicitante_email: EmailStr | None = None
+    responsavel_email: EmailStr | None = None
+
     @field_validator("prazo_ideal", "prazo_limite", mode="before")
     @classmethod
     def parse_date(cls, v):
-        """
-        Aceita string em 'dd-mm-aaaa' (padrão BR) ou 'aaaa-mm-dd' (ISO).
-        Converte para objeto date interno.
-        """
         if isinstance(v, date):
             return v
         if isinstance(v, str):
@@ -42,41 +37,33 @@ class TicketBase(BaseModel):
                     continue
         raise ValueError("Formato de data inválido. Use dd-mm-aaaa.")
 
-    # ----- Saída das datas sempre em dd-mm-aaaa -----
     @field_serializer("prazo_ideal", "prazo_limite", mode="plain")
     def serialize_date(self, v: date) -> str:
         return v.strftime("%d-%m-%Y")
 
 
 class TicketCreate(TicketBase):
-    """Modelo para criação de ticket (entrada)."""
+    """Entrada para criação de ticket.
+    solicitante_email e responsavel_email serão preenchidos pelo servidor.
+    """
     pass
 
 
 class TicketOut(TicketBase):
-    """
-    Modelo de saída de ticket.
-    Inclui campos gerados pelo sistema.
-    """
     id: int
     numero_protocolo: str
     status: str
     data_abertura: datetime
-    farol: str                   # "verde", "amarelo" ou "vermelho"
+    farol: str
 
-    # Permite criar esse modelo a partir de objetos ORM
     model_config = ConfigDict(from_attributes=True)
 
-    # Saída do datetime no formato dd-mm-aaaa hh:mm:ss
     @field_serializer("data_abertura", mode="plain")
     def serialize_data_abertura(self, v: datetime) -> str:
         return v.strftime("%d-%m-%Y %H:%M:%S")
 
 
 class TicketStatusUpdate(BaseModel):
-    """
-    Modelo para atualização de status do ticket.
-    """
     status: str
 
     @field_validator("status")

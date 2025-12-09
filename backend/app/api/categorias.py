@@ -1,6 +1,7 @@
 # backend/app/api/categorias.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from typing import Generator
 from sqlalchemy import select
 
 from app.core.config import SessionLocal
@@ -10,7 +11,7 @@ from app.schemas.categoria import CategoriaCreate, CategoriaOut
 router = APIRouter(prefix="/categorias", tags=["categorias"])
 
 
-def get_db() -> Session:
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db

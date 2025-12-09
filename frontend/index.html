@@ -5,286 +5,766 @@
     <title>EliteDesk - Tickets</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- Bootstrap CDN -->
+    <!-- Bootstrap CSS -->
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
-
-    <!-- Chart.js para gráficos -->
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Bootstrap Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
+    />
 
     <style>
       body {
         background-color: #f4f6f9;
       }
+      .header-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .header-brand img {
+        height: 32px;
+      }
       .card {
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
         border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background-color: #ffffff;
       }
       .badge-farol-verde {
-        background-color: #28a745;
+        background-color: #22c55e;
       }
       .badge-farol-amarelo {
-        background-color: #ffc107;
+        background-color: #eab308;
         color: #000;
       }
       .badge-farol-vermelho {
-        background-color: #dc3545;
+        background-color: #ef4444;
+      }
+      .badge-status {
+        border-radius: 999px;
+        padding: 0.15rem 0.5rem;
+        font-size: 0.7rem;
+      }
+      .status-aberto {
+        background-color: #e0f2fe;
+        color: #0369a1;
+      }
+      .status-em_atendimento {
+        background-color: #fef9c3;
+        color: #854d0e;
+      }
+      .status-aguardando {
+        background-color: #fee2e2;
+        color: #b91c1c;
+      }
+      .status-concluido {
+        background-color: #dcfce7;
+        color: #166534;
+      }
+      .status-cancelado {
+        background-color: #e5e7eb;
+        color: #374151;
+      }
+      .badge-prioridade {
+        border-radius: 999px;
+        padding: 0.15rem 0.5rem;
+        font-size: 0.7rem;
+      }
+      .prio-baixa {
+        background-color: #e5e7eb;
+        color: #374151;
+      }
+      .prio-media {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+      }
+      .prio-alta {
+        background-color: #fee2e2;
+        color: #b91c1c;
+      }
+      .prio-critica {
+        background-color: #f97316;
+        color: #ffffff;
+      }
+      .nav-tabs .nav-link {
+        border-radius: 999px 999px 0 0;
+        padding: 0.5rem 1.5rem;
+      }
+      .nav-tabs .nav-link.active {
+        background-color: #ffffff;
+        border-color: #e2e8f0 #e2e8f0 transparent;
+      }
+      .table-striped tbody tr:nth-of-type(odd) {
+        background-color: #f9fafb;
+      }
+      .table thead th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .table tbody td {
+        font-size: 0.85rem;
+      }
+      .table-row-compact td:nth-child(3) {
+        max-width: 220px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      @media print {
+        body {
+          background-color: #ffffff;
+        }
+        .btn,
+        .nav,
+        #login-form {
+          display: none !important;
+        }
       }
     </style>
   </head>
   <body>
     <div class="container my-4">
-      <h1 class="mb-4">EliteDesk - Abertura de Tickets</h1>
+      <!-- Cabeçalho com logo -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="header-brand">
+          <img src="LOGO Elite_Aco PNG.png" alt="Elite Aço" />
+          <div>
+            <h1 class="h4 mb-0">EliteDesk</h1>
+            <div class="small text-muted">
+              Central de tickets internos – Elite Aço
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <div class="row g-4">
-        <!-- FORMULÁRIO DE ABERTURA -->
-        <div class="col-lg-4">
-          <div class="card mb-3">
-            <div class="card-header fw-bold">Novo Ticket</div>
-            <div class="card-body">
-              <form id="ticket-form">
-                <div class="mb-2">
-                  <label class="form-label">Empresa</label>
-                  <input
-                    type="text"
-                    class="form-control"
-                    id="empresa"
-                    required
-                  />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label">Setor</label>
-                  <select class="form-select" id="setor" required>
-                    <option value="">Carregando setores...</option>
-                  </select>
-                  <small class="text-muted"
-                    >Os setores são carregados da API /setores.</small
-                  >
-                </div>
+      <!-- LOGIN -->
+      <div class="card mb-3">
+        <div class="card-header fw-bold">Login</div>
+        <div class="card-body">
+          <form id="login-form" class="row g-2 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label">E-mail</label>
+              <input
+                type="email"
+                class="form-control"
+                id="login-email"
+                placeholder="teste@example.com"
+                required
+              />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Senha</label>
+              <input
+                type="password"
+                class="form-control"
+                id="login-senha"
+                placeholder="string"
+                required
+              />
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+              <button type="submit" class="btn btn-primary mt-auto">
+                Entrar
+              </button>
+              <button
+                type="button"
+                id="btn-logout"
+                class="btn btn-outline-secondary mt-auto"
+              >
+                Sair
+              </button>
+            </div>
+          </form>
+          <div id="login-status" class="mt-2 small text-muted">
+            Não autenticado.
+          </div>
+        </div>
+      </div>
 
-                <div class="mb-2">
-                  <label class="form-label">Categoria</label>
-                  <select class="form-select" id="categoria">
-                    <option value="">Selecione um setor primeiro...</option>
-                  </select>
-                  <small class="text-muted">
-                    Categorias são carregadas conforme o setor escolhido.
-                  </small>
-                </div>
+      <!-- TABS PRINCIPAIS -->
+      <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+          <button class="nav-link active" id="tab-abertura" type="button">
+            Abertura
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" id="tab-lista" type="button">
+            Lista de tickets
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" id="tab-dashboard" type="button">
+            Dashboard
+          </button>
+        </li>
+      </ul>
 
-                <div class="mb-2">
-                  <label class="form-label">Título</label>
-                  <input
-                    type="text"
-                    class="form-control"
-                    id="titulo"
-                    required
-                  />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label">Descrição</label>
-                  <textarea
-                    class="form-control"
-                    id="descricao"
-                    rows="3"
-                    required
-                  ></textarea>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label">Prioridade</label>
-                  <select class="form-select" id="prioridade" required>
-                    <option value="baixa">Baixa</option>
-                    <option value="media">Média</option>
-                    <option value="alta">Alta</option>
-                    <option value="critica">Crítica</option>
-                  </select>
-                </div>
-                <div class="row mb-2">
-                  <div class="col">
-                    <label class="form-label">Prazo ideal</label>
+      <!-- VIEW: ABERTURA -->
+      <div id="view-abertura">
+        <div class="row g-4">
+          <!-- FORMULÁRIO + RESUMO -->
+          <div class="col-lg-4">
+            <div class="card mb-3">
+              <div class="card-header fw-bold">Novo Ticket</div>
+              <div class="card-body">
+                <form id="ticket-form">
+                  <div class="mb-2">
+                    <label class="form-label">Empresa</label>
+                    <select class="form-select" id="empresa" required>
+                      <option value="">Carregando empresas...</option>
+                    </select>
+                    <small class="text-muted">
+                      As empresas são carregadas da API /empresas.
+                    </small>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Setor</label>
+                    <select class="form-select" id="setor" required>
+                      <option value="">Carregando setores...</option>
+                    </select>
+                    <small class="text-muted">
+                      Os setores são carregados da API /setores.
+                    </small>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Categoria</label>
+                    <select class="form-select" id="categoria">
+                      <option value="">Selecione um setor primeiro...</option>
+                    </select>
+                    <small class="text-muted">
+                      Categorias são carregadas conforme o setor escolhido.
+                    </small>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Título</label>
                     <input
-                      type="date"
+                      type="text"
                       class="form-control"
-                      id="prazo_ideal"
+                      id="titulo"
                       required
                     />
                   </div>
-                  <div class="col">
-                    <label class="form-label">Prazo limite</label>
-                    <input
-                      type="date"
+                  <div class="mb-2">
+                    <label class="form-label">Descrição</label>
+                    <textarea
                       class="form-control"
-                      id="prazo_limite"
+                      id="descricao"
+                      rows="4"
+                      required
+                    ></textarea>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Prioridade</label>
+                    <select class="form-select" id="prioridade" required>
+                      <option value="baixa">Baixa</option>
+                      <option value="media">Média</option>
+                      <option value="alta">Alta</option>
+                      <option value="critica">Crítica</option>
+                    </select>
+                  </div>
+                  <div class="row mb-2">
+                    <div class="col">
+                      <label class="form-label">Prazo ideal</label>
+                      <input
+                        type="date"
+                        class="form-control"
+                        id="prazo_ideal"
+                        required
+                      />
+                    </div>
+                    <div class="col">
+                      <label class="form-label">Prazo limite</label>
+                      <input
+                        type="date"
+                        class="form-control"
+                        id="prazo_limite"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <hr />
+
+                  <div class="mb-2">
+                    <label class="form-label">Contato - Nome</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="contato_nome"
                       required
                     />
                   </div>
-                </div>
+                  <div class="mb-2">
+                    <label class="form-label">Contato - E-mail</label>
+                    <input
+                      type="email"
+                      class="form-control"
+                      id="contato_email"
+                      required
+                    />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Contato - Telefone</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="contato_telefone"
+                      required
+                    />
+                  </div>
 
-                <hr />
+                  <button type="submit" class="btn btn-primary w-100">
+                    Abrir Ticket
+                  </button>
+                </form>
+                <div id="mensagem" class="mt-3"></div>
+              </div>
+            </div>
 
-                <div class="mb-2">
-                  <label class="form-label">Contato - Nome</label>
-                  <input
-                    type="text"
-                    class="form-control"
-                    id="contato_nome"
-                    required
-                  />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label">Contato - E-mail</label>
-                  <input
-                    type="email"
-                    class="form-control"
-                    id="contato_email"
-                    required
-                  />
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">Contato - Telefone</label>
-                  <input
-                    type="text"
-                    class="form-control"
-                    id="contato_telefone"
-                    required
-                  />
-                </div>
-
-                <button type="submit" class="btn btn-primary w-100">
-                  Abrir Ticket
-                </button>
-              </form>
-
-              <div id="mensagem" class="mt-3"></div>
+            <div class="card">
+              <div class="card-header fw-bold">Resumo (geral)</div>
+              <div class="card-body">
+                <p class="mb-1">
+                  <strong>Total de tickets:</strong>
+                  <span id="resumo-total">-</span>
+                </p>
+                <p class="mb-1">
+                  <strong>Abertos:</strong>
+                  <span id="resumo-aberto">-</span>
+                </p>
+                <p class="mb-1">
+                  <strong>Em atendimento:</strong>
+                  <span id="resumo-em_atendimento">-</span>
+                </p>
+                <p class="mb-1">
+                  <strong>Aguardando:</strong>
+                  <span id="resumo-aguardando">-</span>
+                </p>
+                <p class="mb-1">
+                  <strong>Concluídos:</strong>
+                  <span id="resumo-concluido">-</span>
+                </p>
+                <p class="mb-0">
+                  <strong>Cancelados:</strong>
+                  <span id="resumo-cancelado">-</span>
+                </p>
+              </div>
             </div>
           </div>
 
-          <!-- RESUMO SIMPLES -->
-          <div class="card">
-            <div class="card-header fw-bold">Resumo</div>
-            <div class="card-body">
-              <p class="mb-1">
-                <strong>Total de tickets:</strong>
-                <span id="resumo-total">-</span>
-              </p>
-              <p class="mb-1">
-                <strong>Abertos:</strong> <span id="resumo-aberto">-</span>
-              </p>
-              <p class="mb-1">
-                <strong>Em atendimento:</strong>
-                <span id="resumo-em_atendimento">-</span>
-              </p>
-              <p class="mb-1">
-                <strong>Aguardando:</strong>
-                <span id="resumo-aguardando">-</span>
-              </p>
-              <p class="mb-1">
-                <strong>Concluídos:</strong>
-                <span id="resumo-concluido">-</span>
-              </p>
-              <p class="mb-0">
-                <strong>Cancelados:</strong>
-                <span id="resumo-cancelado">-</span>
-              </p>
+          <!-- PRÉ-VISUALIZAÇÃO + ELIA -->
+          <div class="col-lg-8">
+            <!-- Pré-visualização -->
+            <div class="card mb-3">
+              <div class="card-header fw-bold">Pré-visualização do ticket</div>
+              <div class="card-body">
+                <h5 id="preview-titulo" class="mb-2 text-primary">
+                  Título do ticket
+                </h5>
+                <div class="mb-1">
+                  <span class="badge bg-light text-muted border me-1"
+                    ><i class="bi bi-building me-1"></i
+                    ><span id="preview-empresa">Empresa</span></span
+                  >
+                  <span class="badge bg-light text-muted border me-1"
+                    ><i class="bi bi-diagram-3 me-1"></i
+                    ><span id="preview-setor">Setor</span></span
+                  >
+                  <span class="badge bg-light text-muted border me-1"
+                    ><i class="bi bi-tags me-1"></i
+                    ><span id="preview-categoria">Categoria</span></span
+                  >
+                  <span id="preview-prioridade" class="badge-prioridade prio-baixa">
+                    Prioridade
+                  </span>
+                </div>
+                <div class="small text-muted mb-2">
+                  Prazo ideal: <span id="preview-prazo-ideal">–</span> |
+                  Prazo limite: <span id="preview-prazo-limite">–</span>
+                </div>
+                <p id="preview-descricao" class="mb-3">
+                  A descrição aparecerá aqui conforme você digitar.
+                </p>
+                <div class="small text-muted">
+                  Contato: <span id="preview-contato-nome">–</span> –
+                  <span id="preview-contato-email">–</span> –
+                  <span id="preview-contato-telefone">–</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ELIA – melhorar texto -->
+            <div class="card">
+              <div class="card-header d-flex justify-content-between">
+                <span class="fw-bold">
+                  <span class="text-warning"
+                    ><i class="bi bi-stars me-1"></i
+                  ></span>
+                  ELIA – Melhorar texto do ticket
+                </span>
+              </div>
+              <div class="card-body">
+                <p class="small text-muted">
+                  Escreva o <strong>Título</strong> e a
+                  <strong>Descrição</strong>. Depois clique em
+                  <em>Sugerir melhoria</em> para a ELIA propor uma versão mais
+                  clara e profissional. Você pode aplicar a sugestão com um
+                  clique.
+                </p>
+
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                  <button
+                    type="button"
+                    id="elia-sugerir-texto"
+                    class="btn btn-outline-primary btn-sm"
+                  >
+                    <i class="bi bi-magic me-1"></i> Sugerir melhoria
+                  </button>
+                  <button
+                    type="button"
+                    id="elia-aplicar-texto"
+                    class="btn btn-primary btn-sm"
+                    disabled
+                  >
+                    <i class="bi bi-check2-circle me-1"></i> Aplicar sugestão
+                  </button>
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label">Título sugerido pela ELIA</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="elia-titulo-sugerido"
+                    placeholder="Clique em &quot;Sugerir melhoria&quot;"
+                    readonly
+                  />
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label">Descrição sugerida pela ELIA</label>
+                  <textarea
+                    class="form-control"
+                    id="elia-descricao-sugerida"
+                    rows="4"
+                    placeholder="Clique em &quot;Sugerir melhoria&quot;"
+                    readonly
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: LISTA DE TICKETS -->
+      <div id="view-lista" class="d-none">
+        <!-- FILTROS -->
+        <div class="card mb-3">
+          <div class="card-header fw-bold">Filtros</div>
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select id="filtro-status" class="form-select">
+                  <option value="">(Todos)</option>
+                  <option value="aberto">Aberto</option>
+                  <option value="em_atendimento">Em atendimento</option>
+                  <option value="aguardando">Aguardando</option>
+                  <option value="concluido">Concluído</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Setor</label>
+                <input
+                  type="text"
+                  id="filtro-setor"
+                  class="form-control"
+                  placeholder="Ex.: TI"
+                />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Prioridade</label>
+                <select id="filtro-prioridade" class="form-select">
+                  <option value="">(Todas)</option>
+                  <option value="baixa">Baixa</option>
+                  <option value="media">Média</option>
+                  <option value="alta">Alta</option>
+                  <option value="critica">Crítica</option>
+                </select>
+              </div>
+              <div class="col-md-3 d-flex gap-2">
+                <button id="btn-aplicar-filtros" class="btn btn-secondary">
+                  Aplicar filtros
+                </button>
+                <button
+                  id="btn-meus"
+                  class="btn btn-outline-primary btn-sm ms-auto"
+                >
+                  Meus tickets
+                </button>
+                <button
+                  id="btn-todos"
+                  class="btn btn-outline-secondary btn-sm"
+                >
+                  Todos
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- FILTROS + LISTAGEM + GRÁFICO -->
-        <div class="col-lg-8">
-          <div class="card mb-3">
-            <div class="card-header fw-bold">Filtros</div>
-            <div class="card-body">
-              <div class="row g-2 align-items-end">
-                <div class="col-md-4">
-                  <label class="form-label">Status</label>
-                  <select id="filtro-status" class="form-select">
-                    <option value="">(Todos)</option>
-                    <option value="aberto">Aberto</option>
-                    <option value="em_atendimento">Em atendimento</option>
-                    <option value="aguardando">Aguardando</option>
-                    <option value="concluido">Concluído</option>
-                    <option value="cancelado">Cancelado</option>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Setor</label>
-                  <input
-                    type="text"
-                    id="filtro-setor"
-                    class="form-control"
-                    placeholder="Ex.: TI"
-                  />
-                </div>
-                <div class="col-md-3">
-                  <label class="form-label">Prioridade</label>
-                  <select id="filtro-prioridade" class="form-select">
-                    <option value="">(Todas)</option>
-                    <option value="baixa">Baixa</option>
-                    <option value="media">Média</option>
-                    <option value="alta">Alta</option>
-                    <option value="critica">Crítica</option>
-                  </select>
-                </div>
-                <div class="col-md-1 d-grid">
-                  <button id="btn-aplicar-filtros" class="btn btn-secondary">
-                    OK
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card mb-3">
-            <div
-              class="card-header d-flex justify-content-between align-items-center"
+        <!-- TABELA -->
+        <div class="card">
+          <div
+            class="card-header d-flex justify-content-between align-items-center"
+          >
+            <span class="fw-bold">Tickets</span>
+            <button
+              id="btn-recarregar"
+              class="btn btn-sm btn-outline-primary"
             >
-              <span class="fw-bold">Tickets</span>
-              <button
-                id="btn-recarregar"
-                class="btn btn-sm btn-outline-primary"
+              Recarregar
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive" style="max-height: 60vh">
+              <table
+                class="table table-sm table-striped table-hover align-middle"
+                id="tabela-tickets"
               >
-                Recarregar
+                <thead class="table-light">
+                  <tr>
+                    <th>#</th>
+                    <th>Protocolo</th>
+                    <th>Título</th>
+                    <th>Setor</th>
+                    <th>Prioridade</th>
+                    <th>Solicitante</th>
+                    <th>Responsável</th>
+                    <th>Farol</th>
+                    <th>Status</th>
+                    <th>Abertura</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <small class="text-muted">
+              * Dados carregados da API http://127.0.0.1:8000/tickets
+            </small>
+          </div>
+        </div>
+
+        <!-- ELIA – análise do ticket selecionado -->
+        <div class="card mt-3">
+          <div class="card-header fw-bold">
+            <span class="text-info"><i class="bi bi-stars me-1"></i></span>
+            ELIA – Análise do ticket selecionado
+          </div>
+          <div class="card-body">
+            <p class="small text-muted" id="elia-info-lista">
+              Selecione um ticket na tabela acima para que a ELIA possa ajudar
+              com resumos e dúvidas sobre o atendimento.
+            </p>
+
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <button
+                type="button"
+                id="elia-resumir-ticket"
+                class="btn btn-outline-primary btn-sm"
+                disabled
+              >
+                Resumir ticket
               </button>
             </div>
-            <div class="card-body">
-              <div class="table-responsive" style="max-height: 40vh">
-                <table
-                  class="table table-sm table-hover align-middle"
-                  id="tabela-tickets"
-                >
-                  <thead class="table-light">
-                    <tr>
-                      <th>#</th>
-                      <th>Protocolo</th>
-                      <th>Título</th>
-                      <th>Setor</th>
-                      <th>Prioridade</th>
-                      <th>Farol</th>
-                      <th>Status</th>
-                      <th>Abertura</th>
-                      <th>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <!-- Linhas preenchidas via JS -->
-                  </tbody>
-                </table>
+
+            <div class="mb-2">
+              <label class="form-label">Perguntar sobre o ticket</label>
+              <textarea
+                class="form-control"
+                id="elia-pergunta-ticket"
+                rows="3"
+                placeholder="Ex.: O que ainda falta para encerrar este ticket?"
+                disabled
+              ></textarea>
+            </div>
+
+            <button
+              type="button"
+              id="elia-perguntar-ticket"
+              class="btn btn-primary btn-sm mb-3"
+              disabled
+            >
+              Enviar pergunta
+            </button>
+
+            <div class="mb-2">
+              <label class="form-label">Resposta da ELIA</label>
+              <div
+                id="elia-resposta-ticket"
+                class="border rounded p-2"
+                style="min-height: 120px; background-color: #f8fafc;"
+              >
+                Nenhum ticket selecionado.
               </div>
-              <small class="text-muted">
-                * Dados carregados da API http://127.0.0.1:8000/tickets
-              </small>
             </div>
           </div>
+        </div>
+      </div>
 
-          <!-- GRÁFICO -->
-          <div class="card">
-            <div class="card-header fw-bold">Tickets por status</div>
-            <div class="card-body">
-              <canvas id="chart-status" height="120"></canvas>
+      <!-- VIEW: DASHBOARD -->
+      <div id="view-dashboard" class="d-none">
+        <div class="card mb-3">
+          <div class="card-header fw-bold">Período do dashboard</div>
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-3">
+                <label class="form-label">Data início</label>
+                <input type="date" class="form-control" id="dash-data-ini" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Data fim</label>
+                <input type="date" class="form-control" id="dash-data-fim" />
+              </div>
+              <div class="col-md-3 d-grid">
+                <button id="btn-dash-aplicar" class="btn btn-primary">
+                  Aplicar filtros
+                </button>
+              </div>
+              <div class="col-md-3 d-flex gap-2">
+                <button id="btn-dash-export" class="btn btn-outline-secondary">
+                  Exportar CSV
+                </button>
+                <button id="btn-dash-print" class="btn btn-outline-primary">
+                  Imprimir / PDF
+                </button>
+              </div>
             </div>
+            <small class="text-muted">
+              Se nenhum período for selecionado, o dashboard considera todos os
+              tickets.
+            </small>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <div class="card">
+              <div class="card-body">
+                <div class="small text-muted">Total no período</div>
+                <div class="h4 mb-0" id="dash-resumo-total">-</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="card">
+              <div class="card-body">
+                <div class="small text-muted">Abertos</div>
+                <div class="h5 mb-0" id="dash-resumo-aberto">-</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="card">
+              <div class="card-body">
+                <div class="small text-muted">Em atendimento</div>
+                <div class="h6 mb-0" id="dash-resumo-em_atendimento">-</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="card">
+              <div class="card-body">
+                <div class="small text-muted">Aguardando</div>
+                <div class="h6 mb-0" id="dash-resumo-aguardando">-</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="card">
+              <div class="card-body">
+                <div class="small text-muted">Concluídos</div>
+                <div class="h6 mb-0" id="dash-resumo-concluido">-</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-xl-4 col-md-12">
+            <div class="card h-100">
+              <div class="card-header fw-bold">Tickets por status</div>
+              <div class="card-body">
+                <canvas id="chart-status" height="200"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="col-xl-4 col-md-12">
+            <div class="card h-100">
+              <div class="card-header fw-bold">Tickets por setor</div>
+              <div class="card-body">
+                <canvas id="chart-setor" height="200"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="col-xl-4 col-md-12">
+            <div class="card h-100">
+              <div class="card-header fw-bold">Tickets por responsável</div>
+              <div class="card-body">
+                <canvas id="chart-responsavel" height="200"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL HISTÓRICO -->
+    <div
+      class="modal fade"
+      id="modalHistorico"
+      tabindex="-1"
+      aria-labelledby="modalHistoricoLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalHistoricoLabel">
+              Histórico do ticket
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Fechar"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Data/Hora</th>
+                  <th>Tipo</th>
+                  <th>Usuário</th>
+                  <th>Detalhe</th>
+                </tr>
+              </thead>
+              <tbody id="historico-tbody"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -301,43 +781,135 @@
         { value: "cancelado", label: "Cancelado" },
       ];
 
+      let accessToken = null;
+      let currentUser = null;
+      let mostrarMeus = false;
+
+      const selectEmpresa = document.getElementById("empresa");
       const selectSetor = document.getElementById("setor");
       const selectCategoria = document.getElementById("categoria");
       let categoriasPorNome = {};
 
       const form = document.getElementById("ticket-form");
+      const loginForm = document.getElementById("login-form");
+      const btnLogout = document.getElementById("btn-logout");
+      const loginStatusDiv = document.getElementById("login-status");
       const mensagemDiv = document.getElementById("mensagem");
+
       const tabelaBody = document.querySelector("#tabela-tickets tbody");
       const btnRecarregar = document.getElementById("btn-recarregar");
       const btnAplicarFiltros = document.getElementById("btn-aplicar-filtros");
+      const btnMeus = document.getElementById("btn-meus");
+      const btnTodos = document.getElementById("btn-todos");
 
       const filtroStatus = document.getElementById("filtro-status");
       const filtroSetor = document.getElementById("filtro-setor");
       const filtroPrioridade = document.getElementById("filtro-prioridade");
 
-      // elementos do resumo
       const resumoTotal = document.getElementById("resumo-total");
       const resumoAberto = document.getElementById("resumo-aberto");
-      const resumoEmAtendimento = document.getElementById(
-        "resumo-em_atendimento"
-      );
+      const resumoEmAtendimento =
+        document.getElementById("resumo-em_atendimento");
       const resumoAguardando = document.getElementById("resumo-aguardando");
       const resumoConcluido = document.getElementById("resumo-concluido");
       const resumoCancelado = document.getElementById("resumo-cancelado");
 
-      let chartStatus = null;
+      const dashDataIni = document.getElementById("dash-data-ini");
+      const dashDataFim = document.getElementById("dash-data-fim");
+      const dashResumoTotal = document.getElementById("dash-resumo-total");
+      const dashResumoAberto = document.getElementById("dash-resumo-aberto");
+      const dashResumoEmAtendimento = document.getElementById(
+        "dash-resumo-em_atendimento"
+      );
+      const dashResumoAguardando =
+        document.getElementById("dash-resumo-aguardando");
+      const dashResumoConcluido =
+        document.getElementById("dash-resumo-concluido");
+      const btnDashAplicar = document.getElementById("btn-dash-aplicar");
+      const btnDashExport = document.getElementById("btn-dash-export");
+      const btnDashPrint = document.getElementById("btn-dash-print");
 
-      function limparFormulario() {
-        form.reset();
+      const tabAbertura = document.getElementById("tab-abertura");
+      const tabLista = document.getElementById("tab-lista");
+      const tabDashboard = document.getElementById("tab-dashboard");
+      const viewAbertura = document.getElementById("view-abertura");
+      const viewLista = document.getElementById("view-lista");
+      const viewDashboard = document.getElementById("view-dashboard");
+
+      let chartStatus = null;
+      let chartSetor = null;
+      let chartResponsavel = null;
+
+      const modalHistoricoEl = document.getElementById("modalHistorico");
+      let modalHistorico = null;
+      if (modalHistoricoEl) {
+        modalHistorico = new bootstrap.Modal(modalHistoricoEl);
+      }
+
+      // Pré-visualização
+      const previewTitulo = document.getElementById("preview-titulo");
+      const previewEmpresa = document.getElementById("preview-empresa");
+      const previewSetor = document.getElementById("preview-setor");
+      const previewCategoria = document.getElementById("preview-categoria");
+      const previewPrioridade = document.getElementById("preview-prioridade");
+      const previewPrazoIdeal = document.getElementById("preview-prazo-ideal");
+      const previewPrazoLimite = document.getElementById("preview-prazo-limite");
+      const previewDescricao = document.getElementById("preview-descricao");
+      const previewContatoNome =
+        document.getElementById("preview-contato-nome");
+      const previewContatoEmail =
+        document.getElementById("preview-contato-email");
+      const previewContatoTelefone = document.getElementById(
+        "preview-contato-telefone"
+      );
+
+      // ELIA – melhorar texto
+      const eliaSugerirTextoBtn = document.getElementById("elia-sugerir-texto");
+      const eliaAplicarTextoBtn = document.getElementById("elia-aplicar-texto");
+      const eliaTituloSugeridoInput =
+        document.getElementById("elia-titulo-sugerido");
+      const eliaDescricaoSugeridaInput = document.getElementById(
+        "elia-descricao-sugerida"
+      );
+
+      // ELIA – análise (Lista)
+      let ticketSelecionado = null;
+      const eliaInfoLista = document.getElementById("elia-info-lista");
+      const eliaResumirTicketBtn =
+        document.getElementById("elia-resumir-ticket");
+      const eliaPerguntaTicket =
+        document.getElementById("elia-pergunta-ticket");
+      const eliaPerguntarTicketBtn =
+        document.getElementById("elia-perguntar-ticket");
+      const eliaRespostaTicketDiv =
+        document.getElementById("elia-resposta-ticket");
+
+      function getAuthHeaders() {
+        const headers = {};
+        if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+        return headers;
+      }
+
+      function getAuthJsonHeaders() {
+        const headers = getAuthHeaders();
+        headers["Content-Type"] = "application/json";
+        return headers;
       }
 
       function mostrarMensagem(tipo, texto) {
         mensagemDiv.innerHTML = `
         <div class="alert alert-${tipo} py-2 mb-0">
           ${texto}
-        </div>
-      `;
+        </div>`;
         setTimeout(() => (mensagemDiv.innerHTML = ""), 4000);
+      }
+
+      function atualizarLoginStatus() {
+        if (currentUser && accessToken) {
+          loginStatusDiv.textContent = `Autenticado como ${currentUser.email} (perfil: ${currentUser.perfil})`;
+        } else {
+          loginStatusDiv.textContent = "Não autenticado.";
+        }
       }
 
       function badgeFarol(farol) {
@@ -348,6 +920,29 @@
         if (farol === "vermelho")
           return '<span class="badge badge-farol-vermelho">Vermelho</span>';
         return farol;
+      }
+
+      function badgeStatus(status) {
+        const cls =
+          {
+            aberto: "status-aberto",
+            em_atendimento: "status-em_atendimento",
+            aguardando: "status-aguardando",
+            concluido: "status-concluido",
+            cancelado: "status-cancelado",
+          }[status] || "status-aberto";
+        return `<span class="badge-status ${cls}">${status}</span>`;
+      }
+
+      function badgePrioridade(prio) {
+        const cls =
+          {
+            baixa: "prio-baixa",
+            media: "prio-media",
+            alta: "prio-alta",
+            critica: "prio-critica",
+          }[prio] || "prio-baixa";
+        return `<span class="badge-prioridade ${cls}">${prio}</span>`;
       }
 
       function montarSelectStatus(valorAtual) {
@@ -364,7 +959,7 @@
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, "0");
         const day = String(d.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`; // formato aceito pelo input type="date"
+        return `${year}-${month}-${day}`;
       }
 
       function addDays(baseDate, days) {
@@ -373,18 +968,108 @@
         return d;
       }
 
+      function getPeriodoDashboard() {
+        const ini = dashDataIni.value || "";
+        const fim = dashDataFim.value || "";
+        const params = new URLSearchParams();
+        if (ini) params.append("data_ini", ini);
+        if (fim) params.append("data_fim", fim);
+        return params;
+      }
+
+      async function carregarUsuarioAtual() {
+        if (!accessToken) {
+          currentUser = null;
+          atualizarLoginStatus();
+          return;
+        }
+        try {
+          const resp = await fetch(`${API_BASE}/users/me`, {
+            headers: getAuthHeaders(),
+          });
+          if (!resp.ok) {
+            currentUser = null;
+            accessToken = null;
+            atualizarLoginStatus();
+            return;
+          }
+          currentUser = await resp.json();
+          atualizarLoginStatus();
+        } catch (err) {
+          console.error(err);
+          currentUser = null;
+          accessToken = null;
+          atualizarLoginStatus();
+        }
+      }
+
+      // Pré-visualização do ticket
+      function atualizarPreview() {
+        previewTitulo.textContent =
+          document.getElementById("titulo").value.trim() ||
+          "Título do ticket";
+        previewEmpresa.textContent =
+          selectEmpresa.value || "Empresa não selecionada";
+        previewSetor.textContent =
+          selectSetor.value || "Setor não selecionado";
+        previewCategoria.textContent =
+          selectCategoria.value || "Categoria não selecionada";
+
+        const prio = document.getElementById("prioridade").value || "baixa";
+        previewPrioridade.textContent = prio;
+        previewPrioridade.className = "badge-prioridade " + {
+          baixa: "prio-baixa",
+          media: "prio-media",
+          alta: "prio-alta",
+          critica: "prio-critica",
+        }[prio];
+
+        previewPrazoIdeal.textContent =
+          document.getElementById("prazo_ideal").value || "–";
+        previewPrazoLimite.textContent =
+          document.getElementById("prazo_limite").value || "–";
+
+        previewDescricao.textContent =
+          document.getElementById("descricao").value.trim() ||
+          "A descrição aparecerá aqui conforme você digitar.";
+
+        previewContatoNome.textContent =
+          document.getElementById("contato_nome").value.trim() || "–";
+        previewContatoEmail.textContent =
+          document.getElementById("contato_email").value.trim() || "–";
+        previewContatoTelefone.textContent =
+          document.getElementById("contato_telefone").value.trim() || "–";
+      }
+
+      // ELIA – análise (Lista)
+      function selecionarTicketLista(ticket) {
+        ticketSelecionado = ticket;
+        eliaInfoLista.textContent = `Ticket ${ticket.numero_protocolo} – ${ticket.titulo}`;
+        eliaResumirTicketBtn.disabled = false;
+        eliaPerguntaTicket.disabled = false;
+        eliaPerguntarTicketBtn.disabled = false;
+      }
+
+      // ===== TICKETS =====
       async function atualizarStatus(id, novoStatus) {
+        if (!accessToken) {
+          mostrarMensagem("danger", "Faça login para atualizar status.");
+          return;
+        }
         try {
           const resp = await fetch(`${API_BASE}/tickets/${id}/status`, {
             method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: getAuthJsonHeaders(),
             body: JSON.stringify({ status: novoStatus }),
           });
 
+          if (resp.status === 401) {
+            mostrarMensagem("danger", "Não autorizado. Faça login novamente.");
+            return;
+          }
+
           if (!resp.ok) {
-            const erro = await resp.json();
+            const erro = await resp.json().catch(() => ({}));
             console.error(erro);
             mostrarMensagem("danger", "Erro ao atualizar status.");
             return;
@@ -392,7 +1077,10 @@
 
           mostrarMensagem("success", "Status atualizado com sucesso.");
           carregarTickets();
-          carregarResumo();
+          carregarResumoGeral();
+          if (!viewDashboard.classList.contains("d-none")) {
+            carregarDashboard();
+          }
         } catch (err) {
           console.error(err);
           mostrarMensagem(
@@ -402,147 +1090,390 @@
         }
       }
 
+      async function assumirTicket(id) {
+        if (!accessToken) {
+          mostrarMensagem("danger", "Faça login para assumir tickets.");
+          return;
+        }
+        try {
+          const resp = await fetch(`${API_BASE}/tickets/${id}/assumir`, {
+            method: "PATCH",
+            headers: getAuthHeaders(),
+          });
+
+          if (resp.status === 401) {
+            mostrarMensagem("danger", "Não autorizado. Faça login novamente.");
+            return;
+          }
+
+          if (!resp.ok) {
+            const erro = await resp.json().catch(() => ({}));
+            console.error(erro);
+            mostrarMensagem("danger", "Erro ao assumir ticket.");
+            return;
+          }
+
+          mostrarMensagem("success", "Ticket assumido com sucesso.");
+          carregarTickets();
+          carregarResumoGeral();
+          if (!viewDashboard.classList.contains("d-none")) {
+            carregarDashboard();
+          }
+        } catch (err) {
+          console.error(err);
+          mostrarMensagem(
+            "danger",
+            "Falha de comunicação com a API ao assumir o ticket."
+          );
+        }
+      }
+
       async function carregarTickets() {
-        tabelaBody.innerHTML = `<tr><td colspan="9">Carregando...</td></tr>`;
+        tabelaBody.innerHTML =
+          "<tr><td colspan='11'>Carregando...</td></tr>";
 
         const params = new URLSearchParams();
         if (filtroStatus.value) params.append("status", filtroStatus.value);
         if (filtroSetor.value) params.append("setor", filtroSetor.value);
         if (filtroPrioridade.value)
           params.append("prioridade", filtroPrioridade.value);
+        if (mostrarMeus) params.append("meus", "true");
 
         const queryString = params.toString() ? `?${params.toString()}` : "";
 
         try {
-          const resp = await fetch(`${API_BASE}/tickets${queryString}`);
+          const resp = await fetch(`${API_BASE}/tickets${queryString}`, {
+            headers: getAuthHeaders(),
+          });
+
+          if (resp.status === 401) {
+            tabelaBody.innerHTML =
+              "<tr><td colspan='11'>Não autorizado. Faça login para visualizar os tickets.</td></tr>";
+            return;
+          }
+
           if (!resp.ok) {
             throw new Error("Erro ao buscar tickets");
           }
           const dados = await resp.json();
 
           if (dados.length === 0) {
-            tabelaBody.innerHTML = `<tr><td colspan="9">Nenhum ticket encontrado.</td></tr>`;
+            tabelaBody.innerHTML =
+              "<tr><td colspan='11'>Nenhum ticket encontrado.</td></tr>";
             return;
           }
 
           tabelaBody.innerHTML = "";
           dados.forEach((t) => {
             const tr = document.createElement("tr");
+            tr.classList.add("table-row-compact");
             tr.innerHTML = `
-            <td>${t.id}</td>
-            <td>${t.numero_protocolo}</td>
-            <td>${t.titulo}</td>
-            <td>${t.setor}</td>
-            <td>${t.prioridade}</td>
-            <td>${badgeFarol(t.farol)}</td>
-            <td>${t.status}</td>
-            <td>${t.data_abertura}</td>
-            <td>
-              <div class="d-flex gap-1">
-                ${montarSelectStatus(t.status)}
-                <button class="btn btn-sm btn-outline-primary btn-atualizar-status">
-                  Atualizar
-                </button>
-              </div>
-            </td>
-          `;
+              <td>${t.id}</td>
+              <td>${t.numero_protocolo}</td>
+              <td>${t.titulo}</td>
+              <td>${t.setor}</td>
+              <td>${badgePrioridade(t.prioridade)}</td>
+              <td>${t.solicitante_email ?? ""}</td>
+              <td>${t.responsavel_email ?? ""}</td>
+              <td>${badgeFarol(t.farol)}</td>
+              <td>${badgeStatus(t.status)}</td>
+              <td>${t.data_abertura}</td>
+              <td>
+                <div class="d-flex flex-wrap gap-1">
+                  ${montarSelectStatus(t.status)}
+                  <button class="btn btn-sm btn-primary btn-atualizar-status" title="Salvar status">
+                    Salvar
+                  </button>
+                  <button class="btn btn-sm btn-outline-success btn-assumir" title="Assumir ticket">
+                    <i class="bi bi-person-check"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary btn-historico" title="Ver histórico">
+                    <i class="bi bi-clock-history"></i>
+                  </button>
+                </div>
+              </td>
+            `;
+
+            tr.addEventListener("click", (e) => {
+              if (e.target.closest("button")) return;
+              selecionarTicketLista(t);
+            });
 
             const selectStatus = tr.querySelector(".select-status");
             const btnAtualizar = tr.querySelector(".btn-atualizar-status");
+            const btnAssumir = tr.querySelector(".btn-assumir");
+            const btnHistorico = tr.querySelector(".btn-historico");
 
-            btnAtualizar.addEventListener("click", () => {
+            btnAtualizar.addEventListener("click", (e) => {
+              e.stopPropagation();
+              selecionarTicketLista(t);
               const novoStatus = selectStatus.value;
               atualizarStatus(t.id, novoStatus);
+            });
+
+            btnAssumir.addEventListener("click", (e) => {
+              e.stopPropagation();
+              selecionarTicketLista(t);
+              assumirTicket(t.id);
+            });
+
+            btnHistorico.addEventListener("click", (e) => {
+              e.stopPropagation();
+              selecionarTicketLista(t);
+              abrirHistorico(t);
             });
 
             tabelaBody.appendChild(tr);
           });
         } catch (err) {
           console.error(err);
-          tabelaBody.innerHTML = `<tr><td colspan="9">Erro ao carregar tickets.</td></tr>`;
+          tabelaBody.innerHTML =
+            "<tr><td colspan='11'>Erro ao carregar tickets.</td></tr>";
         }
       }
 
-      async function carregarResumo() {
+      // ===== RESUMOS =====
+      async function carregarResumoGeral() {
         try {
-          const resp = await fetch(`${API_BASE}/reports/summary`);
-          if (!resp.ok) {
-            throw new Error("Erro ao buscar resumo");
-          }
+          const resp = await fetch(`${API_BASE}/reports/summary`, {
+            headers: getAuthHeaders(),
+          });
+          if (!resp.ok) return;
           const dados = await resp.json();
-
           const byStatus = dados.by_status || {};
-
           resumoTotal.textContent = dados.total ?? 0;
           resumoAberto.textContent = byStatus.aberto ?? 0;
           resumoEmAtendimento.textContent = byStatus.em_atendimento ?? 0;
           resumoAguardando.textContent = byStatus.aguardando ?? 0;
           resumoConcluido.textContent = byStatus.concluido ?? 0;
           resumoCancelado.textContent = byStatus.cancelado ?? 0;
-
-          // gráfico de barras
-          const ctx = document.getElementById("chart-status").getContext("2d");
-          const labels = STATUS_OPTIONS.map((o) => o.label);
-          const values = STATUS_OPTIONS.map((o) => byStatus[o.value] ?? 0);
-
-          if (chartStatus) {
-            chartStatus.destroy();
-          }
-
-          chartStatus = new Chart(ctx, {
-            type: "bar",
-            data: {
-              labels: labels,
-              datasets: [
-                {
-                  label: "Tickets por status",
-                  data: values,
-                },
-              ],
-            },
-            options: {
-              responsive: true,
-              plugins: {
-                legend: {
-                  display: false,
-                },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  precision: 0,
-                },
-              },
-            },
-          });
         } catch (err) {
           console.error(err);
         }
       }
 
+      async function carregarResumoDashboard(params) {
+        try {
+          const resp = await fetch(
+            `${API_BASE}/reports/summary?${params.toString()}`,
+            { headers: getAuthHeaders() }
+          );
+          if (!resp.ok) return;
+          const dados = await resp.json();
+          const byStatus = dados.by_status || {};
+          dashResumoTotal.textContent = dados.total ?? 0;
+          dashResumoAberto.textContent = byStatus.aberto ?? 0;
+          dashResumoEmAtendimento.textContent =
+            byStatus.em_atendimento ?? 0;
+          dashResumoAguardando.textContent = byStatus.aguardando ?? 0;
+          dashResumoConcluido.textContent = byStatus.concluido ?? 0;
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      // ===== GRÁFICOS =====
+      function criarChart(ctx, type, labels, values, titulo, chartRef) {
+        if (chartRef) chartRef.destroy();
+        return new Chart(ctx, {
+          type,
+          data: {
+            labels,
+            datasets: [
+              {
+                label: titulo,
+                data: values,
+                backgroundColor: [
+                  "#3b82f6",
+                  "#22c55e",
+                  "#f97316",
+                  "#eab308",
+                  "#ef4444",
+                  "#8b5cf6",
+                ],
+                borderColor: "#ffffff",
+                borderWidth: 1,
+                tension: 0.3,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: type !== "bar" } },
+            scales:
+              type === "bar" || type === "line"
+                ? {
+                    y: {
+                      beginAtZero: true,
+                      ticks: { stepSize: 1 },
+                    },
+                  }
+                : {},
+          },
+        });
+      }
+
+      async function carregarChartStatus(params) {
+        try {
+          const resp = await fetch(
+            `${API_BASE}/reports/by_status?${params.toString()}`,
+            { headers: getAuthHeaders() }
+          );
+          if (!resp.ok) return;
+          const dados = await resp.json();
+          const labels = dados.data.map((d) => d.status);
+          const values = dados.data.map((d) => d.quantidade);
+          const ctx = document.getElementById("chart-status").getContext("2d");
+          chartStatus = criarChart(
+            ctx,
+            "pie",
+            labels,
+            values,
+            "Tickets por status",
+            chartStatus
+          );
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      async function carregarChartSetor(params) {
+        try {
+          const resp = await fetch(
+            `${API_BASE}/reports/by_setor?${params.toString()}`,
+            { headers: getAuthHeaders() }
+          );
+          if (!resp.ok) return;
+          const dados = await resp.json();
+          const labels = dados.data.map((d) => d.setor);
+          const values = dados.data.map((d) => d.quantidade);
+          const ctx = document.getElementById("chart-setor").getContext("2d");
+          chartSetor = criarChart(
+            ctx,
+            "bar",
+            labels,
+            values,
+            "Tickets por setor",
+            chartSetor
+          );
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      async function carregarChartResponsavel(params) {
+        try {
+          const resp = await fetch(
+            `${API_BASE}/reports/by_responsavel?${params.toString()}`,
+            { headers: getAuthHeaders() }
+          );
+          if (!resp.ok) return;
+          const dados = await resp.json();
+          const labels = dados.data.map((d) => d.responsavel_email);
+          const values = dados.data.map((d) => d.quantidade);
+          const ctx =
+            document.getElementById("chart-responsavel").getContext("2d");
+          chartResponsavel = criarChart(
+            ctx,
+            "line",
+            labels,
+            values,
+            "Tickets por responsável",
+            chartResponsavel
+          );
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      async function exportarCsvDashboard(params) {
+        try {
+          const resp = await fetch(
+            `${API_BASE}/reports/export_tickets_csv?${params.toString()}`,
+            { headers: getAuthHeaders() }
+          );
+          if (!resp.ok) throw new Error("Erro ao exportar CSV");
+
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "tickets.csv";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error(err);
+          mostrarMensagem("danger", "Erro ao exportar CSV.");
+        }
+      }
+
+      async function carregarDashboard() {
+        const params = getPeriodoDashboard();
+        await carregarResumoDashboard(params);
+        await carregarChartStatus(params);
+        await carregarChartSetor(params);
+        await carregarChartResponsavel(params);
+      }
+
+      // ===== ENTIDADES =====
       async function carregarSetores() {
         try {
-          const resp = await fetch(`${API_BASE}/setores`);
-          if (!resp.ok) {
-            throw new Error("Erro ao buscar setores");
-          }
+          const resp = await fetch(`${API_BASE}/setores`, {
+            headers: getAuthHeaders(),
+          });
+          if (!resp.ok) return;
           const setores = await resp.json();
 
           if (!setores.length) {
-            selectSetor.innerHTML = `<option value="">Nenhum setor cadastrado</option>`;
+            selectSetor.innerHTML =
+              "<option value=''>Nenhum setor cadastrado</option>";
             return;
           }
 
-          selectSetor.innerHTML = `<option value="">Selecione...</option>`;
+          selectSetor.innerHTML = "<option value=''>Selecione...</option>";
           setores.forEach((s) => {
             const opt = document.createElement("option");
-            opt.value = s.nome; // vamos gravar o NOME no ticket
+            opt.value = s.nome;
             opt.textContent = s.nome;
             selectSetor.appendChild(opt);
           });
         } catch (err) {
           console.error(err);
-          selectSetor.innerHTML = `<option value="">Erro ao carregar setores</option>`;
+          selectSetor.innerHTML =
+            "<option value=''>Erro ao carregar setores</option>";
+        }
+      }
+
+      async function carregarEmpresas() {
+        try {
+          const resp = await fetch(`${API_BASE}/empresas`, {
+            headers: getAuthHeaders(),
+          });
+          if (!resp.ok) return;
+          const empresas = await resp.json();
+
+          if (!empresas.length) {
+            selectEmpresa.innerHTML =
+              "<option value=''>Nenhuma empresa cadastrada</option>";
+            selectEmpresa.disabled = true;
+            return;
+          }
+
+          selectEmpresa.disabled = false;
+          selectEmpresa.innerHTML = "<option value=''>Selecione...</option>";
+          empresas.forEach((e) => {
+            const opt = document.createElement("option");
+            opt.value = e.nome_fantasia;
+            opt.textContent = e.nome_fantasia;
+            selectEmpresa.appendChild(opt);
+          });
+        } catch (err) {
+          console.error(err);
+          selectEmpresa.innerHTML =
+            "<option value=''>Erro ao carregar empresas</option>";
+          selectEmpresa.disabled = true;
         }
       }
 
@@ -550,28 +1481,31 @@
         categoriasPorNome = {};
 
         if (!setorNome) {
-          selectCategoria.innerHTML = `<option value="">Selecione um setor primeiro...</option>`;
+          selectCategoria.innerHTML =
+            "<option value=''>Selecione um setor primeiro...</option>";
           selectCategoria.disabled = true;
           return;
         }
 
         try {
           const resp = await fetch(
-            `${API_BASE}/categorias?setor_nome=${encodeURIComponent(setorNome)}`
+            `${API_BASE}/categorias?setor_nome=${encodeURIComponent(
+              setorNome
+            )}`,
+            { headers: getAuthHeaders() }
           );
-          if (!resp.ok) {
-            throw new Error("Erro ao buscar categorias");
-          }
+          if (!resp.ok) return;
           const categorias = await resp.json();
 
           if (!categorias.length) {
-            selectCategoria.innerHTML = `<option value="">Nenhuma categoria cadastrada para este setor</option>`;
+            selectCategoria.innerHTML =
+              "<option value=''>Nenhuma categoria cadastrada para este setor</option>";
             selectCategoria.disabled = true;
             return;
           }
 
           selectCategoria.disabled = false;
-          selectCategoria.innerHTML = `<option value="">Selecione...</option>`;
+          selectCategoria.innerHTML = "<option value=''>Selecione...</option>";
           categorias.forEach((c) => {
             categoriasPorNome[c.nome] = c;
             const opt = document.createElement("option");
@@ -581,18 +1515,251 @@
           });
         } catch (err) {
           console.error(err);
-          selectCategoria.innerHTML = `<option value="">Erro ao carregar categorias</option>`;
+          selectCategoria.innerHTML =
+            "<option value=''>Erro ao carregar categorias</option>";
           selectCategoria.disabled = true;
         }
       }
 
+      // ===== HISTÓRICO =====
+      async function abrirHistorico(ticket) {
+        if (!accessToken) {
+          mostrarMensagem("danger", "Faça login para ver o histórico.");
+          return;
+        }
+
+        const tbody = document.getElementById("historico-tbody");
+        tbody.innerHTML = "<tr><td colspan='4'>Carregando...</td></tr>";
+        document.getElementById(
+          "modalHistoricoLabel"
+        ).textContent = `Histórico - Ticket ${ticket.numero_protocolo} (#${ticket.id})`;
+
+        if (modalHistorico) modalHistorico.show();
+
+        try {
+          const resp = await fetch(
+            `${API_BASE}/tickets/${ticket.id}/eventos`,
+            { headers: getAuthHeaders() }
+          );
+          if (resp.status === 401) {
+            tbody.innerHTML =
+              "<tr><td colspan='4'>Não autorizado. Faça login.</td></tr>";
+            return;
+          }
+          if (!resp.ok) return;
+          const eventos = await resp.json();
+
+          if (!eventos.length) {
+            tbody.innerHTML =
+              "<tr><td colspan='4'>Nenhum evento encontrado.</td></tr>";
+            return;
+          }
+
+          tbody.innerHTML = "";
+          eventos.forEach((e) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${e.data_evento}</td>
+              <td>${e.tipo}</td>
+              <td>${e.usuario_email ?? ""}</td>
+              <td>${e.detalhe ?? ""}</td>`;
+            tbody.appendChild(tr);
+          });
+        } catch (err) {
+          console.error(err);
+          tbody.innerHTML =
+            "<tr><td colspan='4'>Erro ao carregar histórico.</td></tr>";
+        }
+      }
+
+      // ===== ELIA – melhoria de texto (Abertura) =====
+      eliaSugerirTextoBtn.addEventListener("click", () => {
+        const titulo = document.getElementById("titulo").value.trim();
+        const descricao = document.getElementById("descricao").value.trim();
+
+        if (!titulo && !descricao) {
+          mostrarMensagem(
+            "info",
+            "Preencha o título e/ou a descrição para a ELIA sugerir melhorias."
+          );
+          return;
+        }
+
+        const tituloSug = titulo
+          ? titulo.charAt(0).toUpperCase() + titulo.slice(1)
+          : "";
+        let descricaoSug = descricao;
+        if (descricao) {
+          const trimmed = descricao.trim();
+          const temPontuacaoFinal = /[.!?]$/.test(trimmed);
+          descricaoSug = temPontuacaoFinal ? trimmed : trimmed + ".";
+        }
+
+        eliaTituloSugeridoInput.value = tituloSug || titulo;
+        eliaDescricaoSugeridaInput.value = descricaoSug || descricao;
+        eliaAplicarTextoBtn.disabled = false;
+      });
+
+      eliaAplicarTextoBtn.addEventListener("click", () => {
+        const tituloSug = eliaTituloSugeridoInput.value.trim();
+        const descricaoSug = eliaDescricaoSugeridaInput.value.trim();
+
+        if (!tituloSug && !descricaoSug) {
+          mostrarMensagem("info", "Nenhuma sugestão para aplicar.");
+          return;
+        }
+
+        if (tituloSug) document.getElementById("titulo").value = tituloSug;
+        if (descricaoSug)
+          document.getElementById("descricao").value = descricaoSug;
+
+        atualizarPreview();
+        mostrarMensagem(
+          "success",
+          "Sugestão aplicada. Revise o texto antes de salvar."
+        );
+      });
+
+      // ===== ELIA – análise (Lista) =====
+      eliaResumirTicketBtn.addEventListener("click", () => {
+        if (!ticketSelecionado) {
+          mostrarMensagem("danger", "Selecione um ticket na tabela.");
+          return;
+        }
+        const t = ticketSelecionado;
+        const resumo = [
+          `Resumo do ticket ${t.numero_protocolo} (#${t.id}):`,
+          "",
+          `Título: ${t.titulo}`,
+          `Empresa: ${t.empresa}`,
+          `Setor: ${t.setor}`,
+          `Categoria: ${t.categoria_nome || "não informada"}`,
+          `Prioridade: ${t.prioridade}`,
+          `Status atual: ${t.status}`,
+          `Solicitante: ${t.solicitante_email || "não informado"}`,
+          `Responsável: ${t.responsavel_email || "não definido"}`,
+          "",
+          "Descrição:",
+          t.descricao,
+        ].join("\n");
+
+        eliaRespostaTicketDiv.textContent = resumo;
+      });
+
+      eliaPerguntarTicketBtn.addEventListener("click", () => {
+        if (!ticketSelecionado) {
+          mostrarMensagem("danger", "Selecione um ticket na tabela.");
+          return;
+        }
+        const pergunta = eliaPerguntaTicket.value.trim();
+        if (!pergunta) {
+          mostrarMensagem("info", "Digite uma pergunta para a ELIA.");
+          return;
+        }
+
+        const t = ticketSelecionado;
+        const resposta = [
+          `Pergunta sobre o ticket ${t.numero_protocolo}:`,
+          `"${pergunta}"`,
+          "",
+          "[Resposta simulada da ELIA]",
+          "Nesta versão de testes, a resposta é apenas um texto de exemplo.",
+          "Na futura integração com o ChatGPT, a ELIA analisará o contexto completo do ticket e responderá de forma mais rica.",
+        ].join("\n");
+
+        eliaRespostaTicketDiv.textContent = resposta;
+      });
+
+      // ===== HANDLERS DE UI =====
+      tabAbertura.addEventListener("click", () => {
+        tabAbertura.classList.add("active");
+        tabLista.classList.remove("active");
+        tabDashboard.classList.remove("active");
+        viewAbertura.classList.remove("d-none");
+        viewLista.classList.add("d-none");
+        viewDashboard.classList.add("d-none");
+      });
+
+      tabLista.addEventListener("click", () => {
+        tabLista.classList.add("active");
+        tabAbertura.classList.remove("active");
+        tabDashboard.classList.remove("active");
+        viewLista.classList.remove("d-none");
+        viewAbertura.classList.add("d-none");
+        viewDashboard.classList.add("d-none");
+        carregarTickets();
+      });
+
+      tabDashboard.addEventListener("click", () => {
+        tabDashboard.classList.add("active");
+        tabAbertura.classList.remove("active");
+        tabLista.classList.remove("active");
+        viewDashboard.classList.remove("d-none");
+        viewAbertura.classList.add("d-none");
+        viewLista.classList.add("d-none");
+        carregarDashboard();
+      });
+
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("login-email").value;
+        const senha = document.getElementById("login-senha").value;
+
+        const body = new URLSearchParams();
+        body.append("username", email);
+        body.append("password", senha);
+
+        try {
+          const resp = await fetch(`${API_BASE}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body,
+          });
+
+          if (!resp.ok) {
+            const erro = await resp.json().catch(() => ({}));
+            console.error(erro);
+            mostrarMensagem("danger", "E-mail ou senha inválidos.");
+            return;
+          }
+
+          const data = await resp.json();
+          accessToken = data.access_token;
+          await carregarUsuarioAtual();
+          mostrarMensagem("success", "Login realizado com sucesso.");
+          carregarTickets();
+          carregarResumoGeral();
+          if (!viewDashboard.classList.contains("d-none")) {
+            carregarDashboard();
+          }
+        } catch (err) {
+          console.error(err);
+          mostrarMensagem("danger", "Falha de comunicação ao fazer login.");
+        }
+      });
+
+      btnLogout.addEventListener("click", () => {
+        accessToken = null;
+        currentUser = null;
+        atualizarLoginStatus();
+        mostrarMensagem("success", "Logout realizado.");
+        tabelaBody.innerHTML =
+          "<tr><td colspan='11'>Não autenticado. Faça login para visualizar os tickets.</td></tr>";
+      });
+
+      form.addEventListener("input", atualizarPreview);
+
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
+        if (!accessToken) {
+          mostrarMensagem("danger", "Faça login para abrir tickets.");
+          return;
+        }
 
         const payload = {
-          empresa: document.getElementById("empresa").value,
-          setor: document.getElementById("setor").value,
-          categoria_nome: document.getElementById("categoria").value || null,
+          empresa: selectEmpresa.value,
+          setor: selectSetor.value,
+          categoria_nome: selectCategoria.value || null,
           titulo: document.getElementById("titulo").value,
           descricao: document.getElementById("descricao").value,
           prioridade: document.getElementById("prioridade").value,
@@ -606,14 +1773,20 @@
         try {
           const resp = await fetch(`${API_BASE}/tickets`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: getAuthJsonHeaders(),
             body: JSON.stringify(payload),
           });
 
+          if (resp.status === 401) {
+            mostrarMensagem(
+              "danger",
+              "Não autorizado. Faça login novamente."
+            );
+            return;
+          }
+
           if (!resp.ok) {
-            const erro = await resp.json();
+            const erro = await resp.json().catch(() => ({}));
             console.error(erro);
             mostrarMensagem(
               "danger",
@@ -627,9 +1800,16 @@
             "success",
             `Ticket criado com sucesso! Protocolo: ${ticket.numero_protocolo}`
           );
-          limparFormulario();
+          form.reset();
+          eliaTituloSugeridoInput.value = "";
+          eliaDescricaoSugeridaInput.value = "";
+          eliaAplicarTextoBtn.disabled = false;
+          atualizarPreview();
           carregarTickets();
-          carregarResumo();
+          carregarResumoGeral();
+          if (!viewDashboard.classList.contains("d-none")) {
+            carregarDashboard();
+          }
         } catch (err) {
           console.error(err);
           mostrarMensagem("danger", "Falha de comunicação com a API.");
@@ -638,42 +1818,67 @@
 
       btnRecarregar.addEventListener("click", () => {
         carregarTickets();
-        carregarResumo();
+        carregarResumoGeral();
+        if (!viewDashboard.classList.contains("d-none")) {
+          carregarDashboard();
+        }
       });
 
       btnAplicarFiltros.addEventListener("click", carregarTickets);
 
+      btnMeus.addEventListener("click", () => {
+        if (!accessToken) {
+          mostrarMensagem("danger", "Faça login para ver seus tickets.");
+          return;
+        }
+        mostrarMeus = true;
+        carregarTickets();
+      });
+
+      btnTodos.addEventListener("click", () => {
+        mostrarMeus = false;
+        carregarTickets();
+      });
+
       selectSetor.addEventListener("change", () => {
         const setorSelecionado = selectSetor.value;
-        // limpa categoria e prazos
-        selectCategoria.innerHTML = `<option value="">Carregando categorias...</option>`;
+        selectCategoria.innerHTML =
+          "<option value=''>Carregando categorias...</option>";
         document.getElementById("prazo_ideal").value = "";
         document.getElementById("prazo_limite").value = "";
         carregarCategorias(setorSelecionado);
+        atualizarPreview();
       });
 
-      selectCategoria.addEventListener("change", () => {
-        const nomeCategoria = selectCategoria.value;
-        const categoria = categoriasPorNome[nomeCategoria];
-        if (!categoria) {
+      selectCategoria.addEventListener("change", atualizarPreview);
+
+      btnDashAplicar.addEventListener("click", () => {
+        if (!accessToken) {
+          mostrarMensagem("danger", "Faça login para ver o dashboard.");
           return;
         }
-
-        const hoje = new Date();
-
-        const prazoIdealDate = addDays(hoje, categoria.sla_dias_ideal ?? 0);
-        const prazoLimiteDate = addDays(hoje, categoria.sla_dias_limite ?? 0);
-
-        document.getElementById("prazo_ideal").value =
-          formatDateToInput(prazoIdealDate);
-        document.getElementById("prazo_limite").value =
-          formatDateToInput(prazoLimiteDate);
+        carregarDashboard();
       });
 
-      // Carrega dados ao abrir a página
+      btnDashExport.addEventListener("click", () => {
+        if (!accessToken) {
+          mostrarMensagem("danger", "Faça login para exportar CSV.");
+          return;
+        }
+        const params = getPeriodoDashboard();
+        exportarCsvDashboard(params);
+      });
+
+      btnDashPrint.addEventListener("click", () => {
+        window.print();
+      });
+
+      // Inicialização
+      carregarEmpresas();
       carregarSetores();
+      carregarResumoGeral();
       carregarTickets();
-      carregarResumo();
+      atualizarPreview();
     </script>
   </body>
 </html>

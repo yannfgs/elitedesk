@@ -12,7 +12,8 @@ class Ticket(Base):
 
     empresa = Column(String(200), nullable=False)
     setor = Column(String(100), nullable=False)
-    categoria_nome = Column(String(150), nullable=True)  # nova coluna
+    categoria_nome = Column(String(150), nullable=True)
+
     titulo = Column(String(255), nullable=False)
     descricao = Column(String, nullable=False)
     prioridade = Column(String(20), nullable=False)
@@ -23,6 +24,10 @@ class Ticket(Base):
     contato_nome = Column(String(200), nullable=False)
     contato_email = Column(String(200), nullable=False)
     contato_telefone = Column(String(50), nullable=False)
+
+    # Novos campos de usuário
+    solicitante_email = Column(String(200), nullable=True)
+    responsavel_email = Column(String(200), nullable=True)
 
     status = Column(String(50), nullable=False, default="aberto")
     data_abertura = Column(DateTime, nullable=False)
