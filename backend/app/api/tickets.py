@@ -13,7 +13,7 @@ from app.models.ticket import Ticket
 from app.models.ticket_evento import TicketEvento
 from app.models.usuario import Usuario
 from app.schemas.ticket import TicketCreate, TicketOut, TicketStatusUpdate
-from app.schemas.ticket_evento import TicketEventoOut
+from app.schemas.ticket_evento import TicketEventoOut, TicketEventoCreate
 from app.api.usuarios import get_current_user
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
@@ -204,6 +204,47 @@ def listar_eventos_ticket(
         .all()
     )
     return [TicketEventoOut.model_validate(e) for e in eventos]
+
+@router.post("/{ticket_id}/eventos", response_model=TicketEventoOut)
+def criar_evento_ticket(
+    ticket_id: int,
+    evento_in: TicketEventoCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """
+    Registra manualmente um evento em um ticket (anotação, contato, etc.).
+    - Apenas responsável atual, gestor ou admin podem registrar.
+    """
+    ticket = get_ticket_or_404(ticket_id, db)
+
+    if (
+        ticket.responsavel_email not in (None, current_user.email)
+        and current_user.perfil not in ["gestor", "admin"]
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não pode registrar eventos neste ticket.",
+        )
+
+    registrar_evento(
+        db,
+        ticket,
+        tipo=evento_in.tipo,
+        detalhe=evento_in.detalhe,
+        usuario_email=current_user.email,
+    )
+
+    # Busca o último evento registrado para devolver na resposta
+    ultimo = (
+        db.query(TicketEvento)
+        .filter(TicketEvento.ticket_id == ticket.id)
+        .order_by(TicketEvento.data_evento.desc(), TicketEvento.id.desc())
+        .first()
+    )
+
+    return TicketEventoOut.model_validate(ultimo)
+
 
 
 @router.patch("/{ticket_id}/status", response_model=TicketOut)

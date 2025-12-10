@@ -1,14 +1,22 @@
-# backend/app/schemas/ticket_evento.py
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
-class TicketEventoOut(BaseModel):
+class TicketEventoBase(BaseModel):
+    tipo: str
+    detalhe: str | None = None
+
+
+class TicketEventoCreate(TicketEventoBase):
+    """Dados para criar um novo evento de ticket (entrada da API)."""
+    pass
+
+
+class TicketEventoOut(TicketEventoBase):
+    """Evento retornado pela API."""
     id: int
     ticket_id: int
     data_evento: datetime
-    tipo: str
-    detalhe: str | None
-    usuario_email: str | None
+    usuario_email: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
