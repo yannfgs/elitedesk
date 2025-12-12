@@ -1,0 +1,747 @@
+
+
+--- R:\Gerencia\GESTAO\DEV-PROGRAMACAO\PROGRAMAS E APLICACOES\elitedesk\frontend\app.js ---
+
+/* EliteDesk app.js
+   Compatível com:
+   - index.html enviado (ids e charts)
+   - backend: /auth/login, /users/me, /reference, /tickets, /reports/summary
+*/
+
+(() => {
+  const API_BASE = window.ELITEDESK_API_BASE || "http://127.0.0.1:8000";
+  const LS_TOKEN_KEY = "elitedesk_access_token";
+
+  const $ = (id) => document.getElementById(id);
+
+  const STATUS_OPTIONS = [
+    { value: "aberto", label: "Aberto" },
+    { value: "em_atendimento", label: "Em atendimento" },
+    { value: "aguardando", label: "Aguardando" },
+    { value: "concluido", label: "Concluído" },
+    { value: "cancelado", label: "Cancelado" },
+  ];
+  const STATUS_LABEL = Object.fromEntries(STATUS_OPTIONS.map((o) => [o.value, o.label]));
+  const PRIORIDADE_LABEL = { baixa: "Baixa", media: "Média", alta: "Alta", critica: "Crítica" };
+
+  // Fallback se /reference falhar
+  const FALLBACK_REF = {
+    empresas: ["Elite Aço", "Multio", "Multiserv", "RodoElite"],
+    setores: ["Vendas", "Logística", "Financeiro", "SAC & CRM", "Contabilidade", "Fiscal", "Produção", "Manutenção", "Compras", "Obras", "PP&D"],
+    categorias: ["Problema na Entrega", "Arrependimento", "Avaria de Transporte", "Atraso na Entrega", "Cliente Comprou Errado", "Falta/Troca de Peças", "Falta de Acessórios", "Problema de Qualidade", "Problema Fiscal", "Problema na Montagem", "Problema no Pagamento", "Recobrança", "Inadimplência", "Orçamento", "Cotação", "Treinamento", "Auditoria"],
+    naturezas: ["Venda", "Devolução", "Troca", "Assistência Técnica", "Reposição", "Cobrança", "Ajuste/Alinhamento"],
+    canais: ["B2B - Representantes", "B2B - Vendas Diretas", "B2G - Licitações", "D2C - Amazon", "D2C - Casas Bahia", "D2C - Ecommerce Elite Aço", "D2C - Americanas", "D2C - Magalu", "D2C - Mercado Livre", "D2C - Shopee", "D2C - Webcontinental"],
+    transportadoras: ["ALFA", "BRASPRESS", "Correios", "ATUAL", "J&T", "MENGUE", "MAGALOG", "MIRA", "RAPAL", "RODONAVES", "Solística", "TJB", "Trans-Império", "Mercado Livre", "Translovato", "TAP", "JADLOG", "Movimente"],
+  };
+
+  let accessToken = localStorage.getItem(LS_TOKEN_KEY) || null;
+  let currentUser = null;
+
+  let refData = null;
+
+  let mostrarMeus = false;
+  let ticketsById = new Map();
+  let ticketSelecionado = null;
+  let ticketLinhaSelecionada = null;
+
+  let chartStatus = null;
+  let chartSetor = null;
+  let chartResponsavel = null;
+
+  // --------------------
+  // Helpers
+  // --------------------
+  function mostrarMensagem(tipo, texto) {
+    const div = $("mensagem");
+    if (!div) return;
+    div.innerHTML = `<div class="alert alert-${tipo} py-2 mb-0">${texto}</div>`;
+    setTimeout(() => (div.innerHTML = ""), 4500);
+  }
+
+  function atualizarLoginStatus() {
+    const st = $("login-status");
+    if (currentUser && accessToken) {
+      st && (st.textContent = `Autenticado como ${currentUser.email || "—"} (perfil: ${currentUser.perfil || "—"})`);
+    } else {
+      st && (st.textContent = "Não autenticado.");
+    }
+    $("ea-user-name") && ($("ea-user-name").textContent = currentUser?.email || "Não autenticado");
+    $("ea-user-role") && ($("ea-user-role").textContent = currentUser?.perfil || "–");
+  }
+
+  async function safeJson(resp) {
+    try {
+      return await resp.json();
+    } catch {
+      return null;
+    }
+  }
+
+  function formatDateTime(dtStr) {
+    if (!dtStr) return "";
+    if (typeof dtStr === "string" && dtStr.includes("T")) return dtStr.replace("T", " ").substring(0, 16);
+    return String(dtStr);
+  }
+
+  async function apiFetch(path, { method = "GET", auth = true, json = true, body, raw = false } = {}) {
+    const headers = {};
+    if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    if (json && body !== undefined) headers["Content-Type"] = "application/json";
+
+    const resp = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : json ? JSON.stringify(body) : body,
+    });
+
+    if (resp.status === 401) {
+      // derruba sessão local
+      if (accessToken) {
+        accessToken = null;
+        localStorage.removeItem(LS_TOKEN_KEY);
+        currentUser = null;
+        atualizarLoginStatus();
+      }
+      const data = await safeJson(resp);
+      const err = new Error(data?.detail || "Não autorizado.");
+      err.status = 401;
+      err.data = data;
+      throw err;
+    }
+
+    if (!resp.ok) {
+      const data = await safeJson(resp);
+      const err = new Error(data?.detail || `Erro HTTP ${resp.status}`);
+      err.status = resp.status;
+      err.data = data;
+      throw err;
+    }
+
+    if (raw) return resp;
+
+    const ct = resp.headers.get("content-type") || "";
+    return ct.includes("application/json") ? await resp.json() : await resp.text();
+  }
+
+  // --------------------
+  // Tabs
+  // --------------------
+  function ativarTab(tabIdAtivo, viewIdAtiva) {
+    const tabs = ["tab-abertura", "tab-lista", "tab-dashboard", "tab-calendario", "tab-notas"];
+    const views = ["view-abertura", "view-lista", "view-dashboard", "view-calendario", "view-notas"];
+    tabs.forEach((tid) => $(tid)?.classList.toggle("active", tid === tabIdAtivo));
+    views.forEach((vid) => $(vid)?.classList.toggle("d-none", vid !== viewIdAtiva));
+  }
+
+  function bindTabs() {
+    $("tab-abertura")?.addEventListener("click", () => ativarTab("tab-abertura", "view-abertura"));
+    $("tab-lista")?.addEventListener("click", async () => {
+      ativarTab("tab-lista", "view-lista");
+      await carregarTickets();
+    });
+    $("tab-dashboard")?.addEventListener("click", async () => {
+      ativarTab("tab-dashboard", "view-dashboard");
+      await carregarDashboard();
+    });
+    $("tab-calendario")?.addEventListener("click", () => ativarTab("tab-calendario", "view-calendario"));
+    $("tab-notas")?.addEventListener("click", () => ativarTab("tab-notas", "view-notas"));
+  }
+
+  // --------------------
+  // Combos / Reference
+  // --------------------
+  async function carregarReference() {
+    try {
+      const data = await apiFetch("/reference", { auth: false });
+      refData = data && typeof data === "object" ? data : null;
+    } catch (err) {
+      console.warn("[EliteDesk] /reference falhou, usando fallback local.", err);
+      refData = null;
+    }
+  }
+
+  function refList(key) {
+    const v = refData?.[key];
+    if (Array.isArray(v) && v.length) return v;
+    return FALLBACK_REF[key] || [];
+  }
+
+  function fillSelect(sel, values, emptyLabel = "Selecione...") {
+    if (!sel) return;
+    sel.innerHTML = "";
+    if (emptyLabel !== null) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = emptyLabel;
+      sel.appendChild(opt);
+    }
+    (values || []).forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+  }
+
+  function setSelectDisabled(sel, label) {
+    if (!sel) return;
+    sel.innerHTML = `<option value="">${label}</option>`;
+    sel.disabled = true;
+  }
+
+  function preencherCombosDeReference() {
+    fillSelect($("natureza"), refList("naturezas"), "Selecione...");
+    fillSelect($("canal"), refList("canais"), "Selecione...");
+    fillSelect($("transportadora"), refList("transportadoras"), "Selecione...");
+
+    fillSelect($("empresa"), refList("empresas"), "Selecione...");
+    fillSelect($("setor"), refList("setores"), "Selecione...");
+
+    const filtroSetor = $("filtro-setor");
+    if (filtroSetor && filtroSetor.tagName === "SELECT") {
+      fillSelect(filtroSetor, refList("setores"), "(Todos)");
+    }
+
+    setSelectDisabled($("categoria"), "Selecione um setor primeiro...");
+  }
+
+  async function carregarCategorias(setorNome) {
+    const sel = $("categoria");
+    if (!sel) return;
+
+    if (!setorNome) {
+      setSelectDisabled(sel, "Selecione um setor primeiro...");
+      return;
+    }
+
+    // tenta endpoint do DB primeiro (se existir e tiver dados)
+    try {
+      sel.innerHTML = `<option value="">Carregando categorias...</option>`;
+      sel.disabled = true;
+
+      const data = await apiFetch(`/categorias?setor_nome=${encodeURIComponent(setorNome)}`, { auth: !!accessToken });
+      const nomes = (Array.isArray(data) ? data : [])
+        .map((c) => (typeof c === "string" ? c : c?.nome))
+        .filter(Boolean);
+
+      if (nomes.length) {
+        fillSelect(sel, nomes, "Selecione...");
+        return;
+      }
+    } catch (err) {
+      console.warn("[EliteDesk] /categorias falhou:", err?.status || err);
+    }
+
+    // fallback: reference
+    const cats = refList("categorias");
+    if (cats.length) {
+      fillSelect(sel, cats, "Selecione...");
+      return;
+    }
+
+    setSelectDisabled(sel, "Nenhuma categoria disponível");
+  }
+
+  // --------------------
+  // Preview
+  // --------------------
+  function atualizarPreview() {
+    const pvTit = $("preview-titulo");
+    if (!pvTit) return;
+
+    const empresa = $("empresa")?.value || "Empresa não selecionada";
+    const setor = $("setor")?.value || "Setor não selecionado";
+    const cat = $("categoria")?.value || "Categoria não selecionada";
+    const prio = $("prioridade")?.value || "baixa";
+
+    pvTit.textContent = ($("titulo")?.value || "").trim() || "Título do ticket";
+    $("preview-empresa") && ($("preview-empresa").textContent = empresa);
+    $("preview-setor") && ($("preview-setor").textContent = setor);
+    $("preview-categoria") && ($("preview-categoria").textContent = cat);
+
+    const pvPrio = $("preview-prioridade");
+    if (pvPrio) {
+      pvPrio.textContent = PRIORIDADE_LABEL[prio] || prio;
+      pvPrio.className =
+        "badge-prioridade " +
+        ({ baixa: "prio-baixa", media: "prio-media", alta: "prio-alta", critica: "prio-critica" }[prio] || "prio-baixa");
+    }
+
+    $("preview-prazo-ideal") && ($("preview-prazo-ideal").textContent = $("prazo_ideal")?.value || "–");
+    $("preview-prazo-limite") && ($("preview-prazo-limite").textContent = $("prazo_limite")?.value || "–");
+
+    $("preview-descricao") &&
+      ($("preview-descricao").textContent =
+        ($("descricao")?.value || "").trim() || "A descrição aparecerá aqui conforme você digitar.");
+
+    $("preview-contato-nome") && ($("preview-contato-nome").textContent = ($("contato_nome")?.value || "").trim() || "–");
+    $("preview-contato-email") && ($("preview-contato-email").textContent = ($("contato_email")?.value || "").trim() || "–");
+    $("preview-contato-telefone") &&
+      ($("preview-contato-telefone").textContent = ($("contato_telefone")?.value || "").trim() || "–");
+  }
+
+  // --------------------
+  // Auth
+  // --------------------
+  async function carregarUsuarioAtual() {
+    if (!accessToken) {
+      currentUser = null;
+      atualizarLoginStatus();
+      return;
+    }
+    try {
+      currentUser = await apiFetch("/users/me", { auth: true });
+    } catch {
+      currentUser = null;
+    }
+    atualizarLoginStatus();
+  }
+
+  async function login(email, senha) {
+    const body = new URLSearchParams();
+    body.append("username", email);
+    body.append("password", senha);
+
+    const resp = await fetch(`${API_BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+
+    if (!resp.ok) {
+      const data = await safeJson(resp);
+      throw new Error(data?.detail || "E-mail ou senha inválidos.");
+    }
+
+    const data = await resp.json();
+    if (!data?.access_token) throw new Error("API não retornou access_token.");
+
+    accessToken = data.access_token;
+    localStorage.setItem(LS_TOKEN_KEY, accessToken);
+    await carregarUsuarioAtual();
+  }
+
+  function logout() {
+    accessToken = null;
+    currentUser = null;
+    localStorage.removeItem(LS_TOKEN_KEY);
+    atualizarLoginStatus();
+
+    const tbody = document.querySelector("#tabela-tickets tbody");
+    if (tbody) tbody.innerHTML = "<tr><td colspan='11'>Não autenticado. Faça login para visualizar os tickets.</td></tr>";
+  }
+
+  // --------------------
+  // Tickets
+  // --------------------
+  function badgeFarol(f) {
+    if (f === "verde") return '<span class="badge badge-farol-verde">Verde</span>';
+    if (f === "amarelo") return '<span class="badge badge-farol-amarelo">Amarelo</span>';
+    if (f === "vermelho") return '<span class="badge badge-farol-vermelho">Vermelho</span>';
+    return f ?? "";
+  }
+
+  function badgeStatus(s) {
+    const cls =
+      { aberto: "status-aberto", em_atendimento: "status-em_atendimento", aguardando: "status-aguardando", concluido: "status-concluido", cancelado: "status-cancelado" }[s] ||
+      "status-aberto";
+    return `<span class="badge-status ${cls}">${STATUS_LABEL[s] || s || ""}</span>`;
+  }
+
+  function badgePrioridade(p) {
+    const cls = { baixa: "prio-baixa", media: "prio-media", alta: "prio-alta", critica: "prio-critica" }[p] || "prio-baixa";
+    return `<span class="badge-prioridade ${cls}">${PRIORIDADE_LABEL[p] || p || ""}</span>`;
+  }
+
+  function montarSelectStatus(valorAtual, idTicket) {
+    let html = `<select class="form-select form-select-sm select-status" data-id="${idTicket}">`;
+    STATUS_OPTIONS.forEach((opt) => {
+      const sel = opt.value === valorAtual ? "selected" : "";
+      html += `<option value="${opt.value}" ${sel}>${opt.label}</option>`;
+    });
+    html += `</select>`;
+    return html;
+  }
+
+  function selecionarTicketLista(ticket, linha) {
+    ticketSelecionado = ticket;
+    if (ticketLinhaSelecionada) ticketLinhaSelecionada.classList.remove("table-active");
+    if (linha) {
+      ticketLinhaSelecionada = linha;
+      linha.classList.add("table-active");
+    }
+    $("elia-info-lista") && ($("elia-info-lista").textContent = `Ticket ${ticket.numero_protocolo} – ${ticket.titulo}`);
+    $("elia-resumir-ticket")?.removeAttribute("disabled");
+    $("elia-pergunta-ticket")?.removeAttribute("disabled");
+    $("elia-perguntar-ticket")?.removeAttribute("disabled");
+    $("btn-registrar-evento")?.removeAttribute("disabled");
+  }
+
+  function buildTicketsQS() {
+    const p = new URLSearchParams();
+    const add = (k, v) => {
+      const s = (v ?? "").toString().trim();
+      if (s) p.append(k, s);
+    };
+
+    add("status", $("filtro-status")?.value);
+    add("setor", $("filtro-setor")?.value);
+    add("prioridade", $("filtro-prioridade")?.value);
+    add("protocolo", $("filtro-protocolo")?.value);
+    add("solicitante", $("filtro-solicitante")?.value);
+    add("responsavel", $("filtro-responsavel")?.value);
+
+    add("data_ini", $("filtro-data-ini")?.value);
+    add("data_fim", $("filtro-data-fim")?.value);
+    add("prazo_ini", $("filtro-prazo-ini")?.value);
+    add("prazo_fim", $("filtro-prazo-fim")?.value);
+
+    if (mostrarMeus) add("meus", "true");
+
+    const qs = p.toString();
+    return qs ? `?${qs}` : "";
+  }
+
+  async function carregarTickets() {
+    const tbody = document.querySelector("#tabela-tickets tbody");
+    if (!tbody) return;
+
+    if (!accessToken) {
+      tbody.innerHTML = "<tr><td colspan='11'>Não autenticado. Faça login para visualizar os tickets.</td></tr>";
+      return;
+    }
+
+    tbody.innerHTML = "<tr><td colspan='11'>Carregando...</td></tr>";
+    ticketsById = new Map();
+
+    try {
+      const dados = await apiFetch(`/tickets${buildTicketsQS()}`, { auth: true });
+      if (!Array.isArray(dados) || !dados.length) {
+        tbody.innerHTML = "<tr><td colspan='11'>Nenhum ticket encontrado.</td></tr>";
+        return;
+      }
+
+      dados.forEach((t) => ticketsById.set(String(t.id), t));
+
+      tbody.innerHTML = "";
+      dados.forEach((t) => {
+        const tr = document.createElement("tr");
+        tr.dataset.id = String(t.id);
+        tr.classList.add("table-row-compact");
+        tr.innerHTML = `
+          <td>${t.id ?? ""}</td>
+          <td>${t.numero_protocolo ?? ""}</td>
+          <td>${t.titulo ?? ""}</td>
+          <td>${t.setor ?? ""}</td>
+          <td>${badgePrioridade(t.prioridade)}</td>
+          <td>${t.solicitante_email ?? ""}</td>
+          <td>${t.responsavel_email ?? ""}</td>
+          <td>${badgeFarol(t.farol)}</td>
+          <td>${badgeStatus(t.status)}</td>
+          <td>${formatDateTime(t.data_abertura)}</td>
+          <td>
+            <div class="d-flex flex-wrap gap-1">
+              ${montarSelectStatus(t.status, t.id)}
+              <button class="btn btn-sm btn-primary" data-action="salvar-status" data-id="${t.id}">Salvar</button>
+              <button class="btn btn-sm btn-outline-success" data-action="assumir" data-id="${t.id}" title="Assumir ticket">
+                <i class="bi bi-person-check"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (err) {
+      console.error("carregarTickets:", err);
+      tbody.innerHTML = "<tr><td colspan='11'>Erro ao carregar tickets.</td></tr>";
+    }
+  }
+
+  async function atualizarStatus(id, novoStatus) {
+    try {
+      await apiFetch(`/tickets/${id}/status`, { method: "PATCH", auth: true, json: true, body: { status: novoStatus } });
+      mostrarMensagem("success", "Status atualizado.");
+      await carregarTickets();
+      await carregarResumoGeral();
+    } catch (err) {
+      console.error("atualizarStatus:", err);
+      mostrarMensagem("danger", err?.data?.detail || "Erro ao atualizar status.");
+    }
+  }
+
+  async function assumirTicket(id) {
+    try {
+      await apiFetch(`/tickets/${id}/assumir`, { method: "PATCH", auth: true, json: false });
+      mostrarMensagem("success", "Ticket assumido.");
+      await carregarTickets();
+      await carregarResumoGeral();
+    } catch (err) {
+      console.error("assumirTicket:", err);
+      mostrarMensagem("danger", err?.data?.detail || "Erro ao assumir ticket.");
+    }
+  }
+
+  function bindTabelaTicketsDelegation() {
+    const tbody = document.querySelector("#tabela-tickets tbody");
+    if (!tbody) return;
+
+    tbody.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-action]");
+      const tr = e.target.closest("tr[data-id]");
+
+      if (btn) {
+        e.stopPropagation();
+        const id = btn.getAttribute("data-id");
+        const action = btn.getAttribute("data-action");
+
+        const ticket = ticketsById.get(String(id));
+        if (ticket && tr) selecionarTicketLista(ticket, tr);
+
+        if (action === "salvar-status") {
+          const sel = tbody.querySelector(`select.select-status[data-id="${id}"]`);
+          return atualizarStatus(id, sel?.value);
+        }
+        if (action === "assumir") return assumirTicket(id);
+        return;
+      }
+
+      if (tr) {
+        const id = tr.dataset.id;
+        const ticket = ticketsById.get(String(id));
+        if (ticket) selecionarTicketLista(ticket, tr);
+      }
+    });
+  }
+
+  // --------------------
+  // Resumo geral
+  // --------------------
+  async function carregarResumoGeral() {
+    if (!accessToken) return;
+    try {
+      const dados = await apiFetch("/reports/summary", { auth: true });
+      const by = dados.by_status || {};
+      $("resumo-total") && ($("resumo-total").textContent = dados.total ?? 0);
+      $("resumo-aberto") && ($("resumo-aberto").textContent = by.aberto ?? 0);
+      $("resumo-em_atendimento") && ($("resumo-em_atendimento").textContent = by.em_atendimento ?? 0);
+      $("resumo-aguardando") && ($("resumo-aguardando").textContent = by.aguardando ?? 0);
+      $("resumo-concluido") && ($("resumo-concluido").textContent = by.concluido ?? 0);
+      $("resumo-cancelado") && ($("resumo-cancelado").textContent = by.cancelado ?? 0);
+    } catch (err) {
+      console.warn("carregarResumoGeral:", err);
+    }
+  }
+
+  // --------------------
+  // Dashboard
+  // --------------------
+  function filtrarTicketsPorPeriodoDashboard(tickets) {
+    const iniStr = $("dash-data-ini")?.value || "";
+    const fimStr = $("dash-data-fim")?.value || "";
+    if (!iniStr && !fimStr) return tickets;
+
+    const ini = iniStr ? new Date(iniStr + "T00:00:00") : null;
+    const fim = fimStr ? new Date(fimStr + "T23:59:59") : null;
+
+    return tickets.filter((t) => {
+      const dataStr = (t.data_abertura || "").substring(0, 10);
+      if (!dataStr) return false;
+      const d = new Date(dataStr + "T00:00:00");
+      if (ini && d < ini) return false;
+      if (fim && d > fim) return false;
+      return true;
+    });
+  }
+
+  function criarChart(ctx, labels, values, chartRef) {
+    if (!window.Chart || !ctx) return null;
+    if (chartRef) chartRef.destroy();
+    return new Chart(ctx, {
+      type: "bar",
+      data: { labels, datasets: [{ data: values, borderWidth: 1 }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+    });
+  }
+
+  async function carregarDashboard() {
+    if (!accessToken) return;
+
+    try {
+      let tickets = await apiFetch("/tickets", { auth: true });
+      tickets = Array.isArray(tickets) ? tickets : [];
+      tickets = filtrarTicketsPorPeriodoDashboard(tickets);
+
+      const byStatus = tickets.reduce((acc, t) => {
+        const s = t.status || "aberto";
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+      }, {});
+      $("dash-resumo-total") && ($("dash-resumo-total").textContent = tickets.length);
+      $("dash-resumo-aberto") && ($("dash-resumo-aberto").textContent = byStatus.aberto || 0);
+      $("dash-resumo-em_atendimento") && ($("dash-resumo-em_atendimento").textContent = byStatus.em_atendimento || 0);
+      $("dash-resumo-aguardando") && ($("dash-resumo-aguardando").textContent = byStatus.aguardando || 0);
+      $("dash-resumo-concluido") && ($("dash-resumo-concluido").textContent = byStatus.concluido || 0);
+
+      chartStatus = criarChart(
+        document.getElementById("chart-status")?.getContext("2d"),
+        Object.keys(byStatus).map((s) => STATUS_LABEL[s] || s),
+        Object.values(byStatus),
+        chartStatus
+      );
+
+      const bySetor = tickets.reduce((acc, t) => {
+        const s = t.setor || "sem_setor";
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+      }, {});
+      chartSetor = criarChart(
+        document.getElementById("chart-setor")?.getContext("2d"),
+        Object.keys(bySetor),
+        Object.values(bySetor),
+        chartSetor
+      );
+
+      const byResp = tickets.reduce((acc, t) => {
+        const r = t.responsavel_email || "sem_responsavel";
+        acc[r] = (acc[r] || 0) + 1;
+        return acc;
+      }, {});
+      chartResponsavel = criarChart(
+        document.getElementById("chart-responsavel")?.getContext("2d"),
+        Object.keys(byResp),
+        Object.values(byResp),
+        chartResponsavel
+      );
+    } catch (err) {
+      console.error("carregarDashboard:", err);
+    }
+  }
+
+  // --------------------
+  // UI binds
+  // --------------------
+  function bindUI() {
+    bindTabs();
+    bindTabelaTicketsDelegation();
+
+    $("setor")?.addEventListener("change", async () => {
+      await carregarCategorias($("setor")?.value || "");
+      atualizarPreview();
+    });
+    $("categoria")?.addEventListener("change", atualizarPreview);
+    $("ticket-form")?.addEventListener("input", atualizarPreview);
+
+    $("btn-aplicar-filtros")?.addEventListener("click", carregarTickets);
+    $("btn-limpar-filtros")?.addEventListener("click", () => {
+      [
+        "filtro-status", "filtro-setor", "filtro-prioridade", "filtro-protocolo",
+        "filtro-data-ini", "filtro-data-fim", "filtro-prazo-ini", "filtro-prazo-fim",
+        "filtro-solicitante", "filtro-responsavel",
+      ].forEach((id) => $(id) && ($(id).value = ""));
+      mostrarMeus = false;
+      carregarTickets();
+    });
+
+    $("btn-meus")?.addEventListener("click", () => {
+      if (!accessToken) return mostrarMensagem("danger", "Faça login para ver seus tickets.");
+      mostrarMeus = true;
+      carregarTickets();
+    });
+    $("btn-todos")?.addEventListener("click", () => {
+      mostrarMeus = false;
+      carregarTickets();
+    });
+
+    $("btn-recarregar")?.addEventListener("click", async () => {
+      await carregarTickets();
+      await carregarResumoGeral();
+      if (!$("view-dashboard")?.classList.contains("d-none")) await carregarDashboard();
+    });
+
+    $("btn-dash-aplicar")?.addEventListener("click", carregarDashboard);
+    $("btn-dash-limpar")?.addEventListener("click", () => {
+      $("dash-data-ini") && ($("dash-data-ini").value = "");
+      $("dash-data-fim") && ($("dash-data-fim").value = "");
+      carregarDashboard();
+    });
+
+    $("login-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = $("login-email")?.value || "";
+      const senha = $("login-senha")?.value || "";
+      try {
+        await login(email, senha);
+        mostrarMensagem("success", "Login realizado com sucesso.");
+        await carregarResumoGeral();
+        await carregarTickets();
+      } catch (err) {
+        console.error("login:", err);
+        mostrarMensagem("danger", err.message || "Falha de login.");
+      }
+    });
+
+    $("btn-logout")?.addEventListener("click", () => {
+      logout();
+      mostrarMensagem("success", "Logout realizado.");
+    });
+
+    $("ticket-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!accessToken) return mostrarMensagem("danger", "Faça login para abrir tickets.");
+
+      const payload = {
+        empresa: $("empresa")?.value || "",
+        setor: $("setor")?.value || "",
+        categoria_nome: $("categoria")?.value || null,
+        natureza: $("natureza")?.value || null,
+        canal: $("canal")?.value || null,
+        transportadora: $("transportadora")?.value || null,
+        titulo: $("titulo")?.value || "",
+        descricao: $("descricao")?.value || "",
+        prioridade: $("prioridade")?.value || "baixa",
+        prazo_ideal: $("prazo_ideal")?.value || null,
+        prazo_limite: $("prazo_limite")?.value || null,
+        contato_nome: $("contato_nome")?.value || "",
+        contato_email: $("contato_email")?.value || "",
+        contato_telefone: $("contato_telefone")?.value || "",
+      };
+
+      try {
+        const t = await apiFetch("/tickets", { method: "POST", auth: true, json: true, body: payload });
+        mostrarMensagem("success", `Ticket criado! Protocolo: ${t.numero_protocolo || "-"}`);
+        $("ticket-form")?.reset();
+        setSelectDisabled($("categoria"), "Selecione um setor primeiro...");
+        atualizarPreview();
+        await carregarTickets();
+        await carregarResumoGeral();
+      } catch (err) {
+        console.error("criarTicket:", err);
+        mostrarMensagem("danger", err?.data?.detail || "Erro ao criar ticket.");
+      }
+    });
+  }
+
+  // --------------------
+  // Boot
+  // --------------------
+  document.addEventListener("DOMContentLoaded", async () => {
+    bindUI();
+    ativarTab("tab-abertura", "view-abertura");
+
+    await carregarReference();
+    preencherCombosDeReference();
+
+    await carregarUsuarioAtual();
+
+    atualizarPreview();
+
+    if (accessToken) {
+      await carregarResumoGeral();
+      await carregarTickets();
+    } else {
+      const tbody = document.querySelector("#tabela-tickets tbody");
+      if (tbody) tbody.innerHTML = "<tr><td colspan='11'>Não autenticado. Faça login para visualizar os tickets.</td></tr>";
+    }
+  });
+})();

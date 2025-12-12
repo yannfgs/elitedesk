@@ -1,0 +1,255 @@
+
+
+--- R:\Gerencia\GESTAO\DEV-PROGRAMACAO\PROGRAMAS E APLICACOES\elitedesk\frontend\style.css ---
+
+:root {
+  --ea-blue: #2563eb;
+  --ea-blue-soft: #eff6ff;
+  --ea-green: #22c55e;
+  --ea-amber: #eab308;
+  --ea-orange: #f97316;
+  --ea-red: #ef4444;
+  --ea-slate: #64748b;
+  --ea-border: #e2e8f0;
+  --ea-bg: #f4f6f9;
+  --ea-card-bg: #ffffff;
+}
+
+body {
+  background-color: var(--ea-bg);
+}
+
+/* HEADER --------------------------------------------------- */
+
+.ea-header {
+  background: linear-gradient(90deg, #0f172a, #1d4ed8);
+  color: #f9fafb;
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ea-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ea-header-left img {
+  height: 32px;
+}
+
+.ea-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ea-user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+
+.ea-user-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ea-user-role {
+  font-size: 0.75rem;
+  color: #cbd5f5;
+}
+
+.ea-bell-btn {
+  color: #e5e7eb;
+  font-size: 1.25rem;
+}
+
+/* CALENDÁRIO ---------------------------------------------- */
+
+.calendario-grid {
+  min-height: 220px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+/* LISTA DE NOTAS ------------------------------------------ */
+
+.lista-notas-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+/* Cards --------------------------------------------------- */
+
+.card {
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+  border-radius: 12px;
+  border: 1px solid var(--ea-border);
+  background-color: var(--ea-card-bg);
+}
+
+/* Tabs ---------------------------------------------------- */
+
+.nav-tabs .nav-link {
+  border-radius: 999px 999px 0 0;
+  padding: 0.5rem 1.5rem;
+}
+
+.nav-tabs .nav-link.active {
+  background-color: #ffffff;
+  border-color: #e2e8f0 #e2e8f0 transparent;
+  color: var(--ea-blue) !important;
+  font-weight: 600;
+}
+
+/* Faróis e status ----------------------------------------- */
+
+.badge-farol-verde {
+  background-color: var(--ea-green);
+}
+
+.badge-farol-amarelo {
+  background-color: var(--ea-amber);
+  color: #000;
+}
+
+.badge-farol-vermelho {
+  background-color: var(--ea-red);
+}
+
+.badge-status {
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+}
+
+.status-aberto {
+  background-color: #fef9c3;
+  color: #854d0e;
+}
+
+.status-em_atendimento {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-aguardando {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-concluido {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-cancelado {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+/* Prioridade ---------------------------------------------- */
+
+.badge-prioridade {
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+}
+
+.prio-baixa {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.prio-media {
+  background-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.prio-alta {
+  background-color: #fecaca;
+  color: #b91c1c;
+}
+
+.prio-critica {
+  background-color: #f97316;
+  color: #ffffff;
+}
+
+/* Tabela -------------------------------------------------- */
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: #f9fafb;
+}
+
+.table thead th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.table.table-sm th,
+.table.table-sm td {
+  padding: 0.4rem 0.9rem;
+  /* um pouco mais compacto */
+  vertical-align: middle;
+}
+
+.table tbody td {
+  font-size: 0.85rem;
+  color: #111827;
+}
+
+/* Linha selecionada (azul claro) */
+
+.table tbody tr.table-active {
+  background-color: #e0f2fe !important;
+}
+
+/* Título com texto longo */
+
+.table-row-compact td:nth-child(3) {
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* KPI cards (resumo) -------------------------------------- */
+
+.ea-card-kpi {
+  border-left: 4px solid var(--ea-blue);
+}
+
+.ea-card-kpi span.value {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.ea-card-kpi span.label {
+  font-size: 0.8rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Impressão ----------------------------------------------- */
+
+@media print {
+  body {
+    background-color: #ffffff;
+  }
+
+  .btn,
+  .nav,
+  #login-form {
+    display: none !important;
+  }
+}

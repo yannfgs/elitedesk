@@ -1,1292 +1,540 @@
-const API_BASE = "http://127.0.0.1:8000";
+/* EliteDesk app.js (UI + MVP)
+   Corrige / adiciona:
+   1) Status legível e com cor (inclui "atrasado" quando farol=vermelho)
+   2) Botões de ações na lista (ver ticket, histórico, registrar evento)
+   3) Prioridade com cores diferentes
+   4) Seleção de ticket (linha azul + habilita cards ELIA / Evento)
+   5) Pré-visualização viva (inclui Natureza/Canal/Transportadora)
+   6) ELIA “Melhorar texto” (stub local) + ELIA lista (resumo/pergunta)
+   7) Anotações (localStorage) – adicionar / remover / limpar tudo
+*/
 
-// ---- ELEMENTOS DE EVENTO (CARD) ----
-const eventoTipo = document.getElementById("evento-tipo");
-const eventoDetalhe = document.getElementById("evento-detalhe");
-const btnRegistrarEvento = document.getElementById("btn-registrar-evento");
+(() => {
+  const API_BASE = window.ELITEDESK_API_BASE || "http://127.0.0.1:8000";
+  const LS_TOKEN_KEY = "elitedesk_access_token";
+  const NOTES_LS_KEY = "elitedesk_notas_v1";
 
-// ---- STATUS PADRÃO ----
-const STATUS_OPTIONS = [
-  { value: "aberto", label: "Aberto" },
-  { value: "em_atendimento", label: "Em atendimento" },
-  { value: "aguardando", label: "Aguardando" },
-  { value: "concluido", label: "Concluído" },
-  { value: "cancelado", label: "Cancelado" },
-];
+  const $ = (id) => document.getElementById(id);
 
-let accessToken = null;
-let currentUser = null;
-let mostrarMeus = false;
+  const STATUS_OPTIONS = [
+    { value: "aberto", label: "Aberto" },
+    { value: "em_atendimento", label: "Em atendimento" },
+    { value: "aguardando", label: "Aguardando" },
+    { value: "concluido", label: "Concluído" },
+    { value: "cancelado", label: "Cancelado" },
+  ];
+  const STATUS_LABEL = Object.fromEntries(STATUS_OPTIONS.map((o) => [o.value, o.label]));
+  const PRIORIDADE_LABEL = { baixa: "Baixa", media: "Média", alta: "Alta", critica: "Crítica" };
 
-// ELEMENTOS PRINCIPAIS
-const selectEmpresa = document.getElementById("empresa");
-const selectSetor = document.getElementById("setor");
-const selectCategoria = document.getElementById("categoria");
-let categoriasPorNome = {};
+  // Fallback se /reference falhar
+  const FALLBACK_REF = {
+    empresas: ["Elite Aço", "Multio", "Multiserv", "RodoElite"],
+    setores: [
+      "Vendas",
+      "Logística",
+      "Financeiro",
+      "SAC & CRM",
+      "Contabilidade",
+      "Fiscal",
+      "Produção",
+      "Manutenção",
+      "Compras",
+      "Obras",
+      "PP&D",
+    ],
+    categorias: [
+      "Problema na Entrega",
+      "Arrependimento",
+      "Avaria de Transporte",
+      "Atraso na Entrega",
+      "Cliente Comprou Errado",
+      "Falta/Troca de Peças",
+      "Falta de Acessórios",
+      "Problema de Qualidade",
+      "Problema Fiscal",
+      "Problema na Montagem",
+      "Problema no Pagamento",
+      "Recobrança",
+      "Inadimplência",
+      "Orçamento",
+      "Cotação",
+      "Treinamento",
+      "Auditoria",
+    ],
+    naturezas: ["Venda", "Devolução", "Troca", "Assistência Técnica", "Reposição", "Cobrança", "Ajuste/Alinhamento"],
+    canais: [
+      "B2B - Representantes",
+      "B2B - Vendas Diretas",
+      "B2G - Licitações",
+      "D2C - Amazon",
+      "D2C - Casas Bahia",
+      "D2C - Ecommerce Elite Aço",
+      "D2C - Americanas",
+      "D2C - Magalu",
+      "D2C - Mercado Livre",
+      "D2C - Shopee",
+      "D2C - Webcontinental",
+    ],
+    transportadoras: [
+      "ALFA",
+      "BRASPRESS",
+      "Correios",
+      "ATUAL",
+      "J&T",
+      "MENGUE",
+      "MAGALOG",
+      "MIRA",
+      "RAPAL",
+      "RODONAVES",
+      "Solística",
+      "TJB",
+      "Trans-Império",
+      "Mercado Livre",
+      "Translovato",
+      "TAP",
+      "JADLOG",
+      "Movimente",
+    ],
+  };
 
-const form = document.getElementById("ticket-form");
-const loginForm = document.getElementById("login-form");
-const btnLogout = document.getElementById("btn-logout");
-const loginStatusDiv = document.getElementById("login-status");
-const mensagemDiv = document.getElementById("mensagem");
+  let accessToken = localStorage.getItem(LS_TOKEN_KEY) || null;
+  let currentUser = null;
+  let refData = null;
 
-const tabelaBody = document.querySelector("#tabela-tickets tbody");
-const btnRecarregar = document.getElementById("btn-recarregar");
-const btnAplicarFiltros = document.getElementById("btn-aplicar-filtros");
-const btnMeus = document.getElementById("btn-meus");
-const btnTodos = document.getElementById("btn-todos");
+  let mostrarMeus = false;
+  let ticketsById = new Map();
+  let ticketsCache = [];
+  let ticketSelecionado = null;
+  let ticketLinhaSelecionada = null;
 
-// botões de exportação / impressão da LISTA
-const btnListExport = document.getElementById("btn-list-export");
-const btnListPrint = document.getElementById("btn-list-print");
+  let chartStatus = null;
+  let chartSetor = null;
+  let chartResponsavel = null;
 
-// botão de limpar filtros da LISTA
-const btnLimparFiltros = document.getElementById("btn-limpar-filtros");
-
-// filtros da LISTA
-const filtroStatus = document.getElementById("filtro-status");
-const filtroSetor = document.getElementById("filtro-setor");
-const filtroPrioridade = document.getElementById("filtro-prioridade");
-const filtroProtocolo = document.getElementById("filtro-protocolo");
-const filtroDataIni = document.getElementById("filtro-data-ini");
-const filtroDataFim = document.getElementById("filtro-data-fim");
-const filtroPrazoIni = document.getElementById("filtro-prazo-ini");
-const filtroPrazoFim = document.getElementById("filtro-prazo-fim");
-
-// RESUMO GERAL
-const resumoTotal = document.getElementById("resumo-total");
-const resumoAberto = document.getElementById("resumo-aberto");
-const resumoEmAtendimento = document.getElementById("resumo-em_atendimento");
-const resumoAguardando = document.getElementById("resumo-aguardando");
-const resumoConcluido = document.getElementById("resumo-concluido");
-const resumoCancelado = document.getElementById("resumo-cancelado");
-
-// DASHBOARD
-const dashDataIni = document.getElementById("dash-data-ini");
-const dashDataFim = document.getElementById("dash-data-fim");
-const dashResumoTotal = document.getElementById("dash-resumo-total");
-const dashResumoAberto = document.getElementById("dash-resumo-aberto");
-const dashResumoEmAtendimento = document.getElementById(
-  "dash-resumo-em_atendimento"
-);
-const dashResumoAguardando = document.getElementById("dash-resumo-aguardando");
-const dashResumoConcluido = document.getElementById("dash-resumo-concluido");
-const btnDashAplicar = document.getElementById("btn-dash-aplicar");
-const btnDashExport = document.getElementById("btn-dash-export"); // opcional
-const btnDashPrint = document.getElementById("btn-dash-print");
-const btnDashLimpar = document.getElementById("btn-dash-limpar");
-
-// TABS
-const tabAbertura = document.getElementById("tab-abertura");
-const tabLista = document.getElementById("tab-lista");
-const tabDashboard = document.getElementById("tab-dashboard");
-const viewAbertura = document.getElementById("view-abertura");
-const viewLista = document.getElementById("view-lista");
-const viewDashboard = document.getElementById("view-dashboard");
-
-// GRÁFICOS
-let chartStatus = null;
-let chartSetor = null;
-let chartResponsavel = null;
-
-// MODAL HISTÓRICO
-const modalHistoricoEl = document.getElementById("modalHistorico");
-let modalHistorico = null;
-if (modalHistoricoEl) {
-  modalHistorico = new bootstrap.Modal(modalHistoricoEl);
-}
-
-// MODAL VISUALIZAÇÃO DE TICKET
-const modalTicketViewEl = document.getElementById("modalTicketView");
-let modalTicketView = null;
-if (modalTicketViewEl) {
-  modalTicketView = new bootstrap.Modal(modalTicketViewEl);
-}
-const ticketViewBody = document.getElementById("ticket-view-body");
-const btnTicketPrint = document.getElementById("btn-ticket-print");
-
-// MODAL DE EVENTO (ícone da coluna AÇÕES)
-const modalEventoEl = document.getElementById("modalEvento");
-let modalEvento = null;
-if (modalEventoEl) {
-  modalEvento = new bootstrap.Modal(modalEventoEl);
-}
-const eventoTicketInfo = document.getElementById("evento-ticket-info");
-const eventoTipoModal = document.getElementById("evento-tipo-modal");
-const eventoDetalheModal = document.getElementById("evento-detalhe-modal");
-const btnSalvarEventoModal = document.getElementById("btn-salvar-evento-modal");
-let ticketEventoAlvo = null;
-
-// PRÉ-VISUALIZAÇÃO (ABERTURA)
-const previewTitulo = document.getElementById("preview-titulo");
-const previewEmpresa = document.getElementById("preview-empresa");
-const previewSetor = document.getElementById("preview-setor");
-const previewCategoria = document.getElementById("preview-categoria");
-const previewPrioridade = document.getElementById("preview-prioridade");
-const previewPrazoIdeal = document.getElementById("preview-prazo-ideal");
-const previewPrazoLimite = document.getElementById("preview-prazo-limite");
-const previewDescricao = document.getElementById("preview-descricao");
-const previewContatoNome = document.getElementById("preview-contato-nome");
-const previewContatoEmail = document.getElementById("preview-contato-email");
-const previewContatoTelefone = document.getElementById(
-  "preview-contato-telefone"
-);
-
-// ELIA – melhorar texto (ABERTURA)
-const eliaSugerirTextoBtn = document.getElementById("elia-sugerir-texto");
-const eliaAplicarTextoBtn = document.getElementById("elia-aplicar-texto");
-const eliaTituloSugeridoInput = document.getElementById("elia-titulo-sugerido");
-const eliaDescricaoSugeridaInput = document.getElementById(
-  "elia-descricao-sugerida"
-);
-
-// ELIA – análise (LISTA)
-let ticketSelecionado = null;
-let ticketLinhaSelecionada = null;
-const eliaInfoLista = document.getElementById("elia-info-lista");
-const eliaResumirTicketBtn = document.getElementById("elia-resumir-ticket");
-const eliaPerguntaTicket = document.getElementById("elia-pergunta-ticket");
-const eliaPerguntarTicketBtn = document.getElementById("elia-perguntar-ticket");
-const eliaRespostaTicketDiv = document.getElementById("elia-resposta-ticket");
-
-// ========= FUNÇÕES UTILITÁRIAS =========
-
-function getAuthHeaders() {
-  const headers = {};
-  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
-  return headers;
-}
-
-function getAuthJsonHeaders() {
-  const headers = getAuthHeaders();
-  headers["Content-Type"] = "application/json";
-  return headers;
-}
-
-function mostrarMensagem(tipo, texto) {
-  if (!mensagemDiv) return;
-  mensagemDiv.innerHTML = `
-    <div class="alert alert-${tipo} py-2 mb-0">
-      ${texto}
-    </div>`;
-  setTimeout(() => (mensagemDiv.innerHTML = ""), 4000);
-}
-
-function atualizarLoginStatus() {
-  if (!loginStatusDiv) return;
-  if (currentUser && accessToken) {
-    loginStatusDiv.textContent = `Autenticado como ${currentUser.email} (perfil: ${currentUser.perfil})`;
-  } else {
-    loginStatusDiv.textContent = "Não autenticado.";
+  // --------------------
+  // Helpers
+  // --------------------
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
-}
 
-function badgeFarol(farol) {
-  if (farol === "verde")
-    return '<span class="badge badge-farol-verde">Verde</span>';
-  if (farol === "amarelo")
-    return '<span class="badge badge-farol-amarelo">Amarelo</span>';
-  if (farol === "vermelho")
-    return '<span class="badge badge-farol-vermelho">Vermelho</span>';
-  return farol;
-}
-
-function badgeStatus(status) {
-  const cls =
-    {
-      aberto: "status-aberto",
-      em_atendimento: "status-em_atendimento",
-      aguardando: "status-aguardando",
-      concluido: "status-concluido",
-      cancelado: "status-cancelado",
-    }[status] || "status-aberto";
-  return `<span class="badge-status ${cls}">${status}</span>`;
-}
-
-function badgePrioridade(prio) {
-  const cls =
-    {
-      baixa: "prio-baixa",
-      media: "prio-media",
-      alta: "prio-alta",
-      critica: "prio-critica",
-    }[prio] || "prio-baixa";
-  return `<span class="badge-prioridade ${cls}">${prio}</span>`;
-}
-
-function montarSelectStatus(valorAtual) {
-  let html = `<select class="form-select form-select-sm select-status">`;
-  STATUS_OPTIONS.forEach((opt) => {
-    const selected = opt.value === valorAtual ? "selected" : "";
-    html += `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
-  });
-  html += `</select>`;
-  return html;
-}
-
-// helper para copiar apenas um elemento para nova janela e imprimir
-function printElementById(id, titulo = "Relatório") {
-  const el = document.getElementById(id);
-  if (!el) {
-    window.print();
-    return;
+  function ensureGlobalMessageArea() {
+    if ($("mensagem-global")) return;
+    const container = document.querySelector(".container");
+    if (!container) return;
+    const div = document.createElement("div");
+    div.id = "mensagem-global";
+    div.className = "mb-3";
+    container.insertBefore(div, container.firstChild);
   }
-  const win = window.open("", "_blank");
-  win.document.write(`
-    <html>
-      <head>
-        <title>${titulo}</title>
-        <link
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-        />
-      </head>
-      <body class="p-4">
-        <div class="container">
-          ${el.outerHTML}
-        </div>
-      </body>
-    </html>
-  `);
-  win.document.close();
-  win.focus();
-  win.print();
-}
 
-function getPeriodoDashboard() {
-  const ini = dashDataIni?.value || "";
-  const fim = dashDataFim?.value || "";
-  const params = new URLSearchParams();
-  if (ini) params.append("data_ini", ini);
-  if (fim) params.append("data_fim", fim);
-  return params;
-}
-
-async function carregarUsuarioAtual() {
-  if (!accessToken) {
-    currentUser = null;
-    atualizarLoginStatus();
-    return;
+  function getMessageArea() {
+    return $("mensagem-global") || $("mensagem") || null;
   }
-  try {
-    const resp = await fetch(`${API_BASE}/users/me`, {
-      headers: getAuthHeaders(),
+
+  function mostrarMensagem(tipo, texto) {
+    const div = getMessageArea();
+    if (!div) {
+      alert(texto);
+      return;
+    }
+    div.innerHTML = `<div class="alert alert-${tipo} py-2 mb-0">${escapeHtml(texto)}</div>`;
+    setTimeout(() => (div.innerHTML = ""), 4500);
+  }
+
+  async function safeJson(resp) {
+    try {
+      return await resp.json();
+    } catch {
+      return null;
+    }
+  }
+
+  function normalizeText(s) {
+    return String(s ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function normalizeStatus(s) {
+    const raw = normalizeText(s);
+    if (!raw) return "aberto";
+
+    // já é código
+    if (STATUS_LABEL[raw]) return raw;
+
+    // rótulos
+    const map = {
+      aberto: "aberto",
+      "em atendimento": "em_atendimento",
+      em_atendimento: "em_atendimento",
+      aguardando: "aguardando",
+      concluido: "concluido",
+      cancelado: "cancelado",
+    };
+    return map[raw] || "aberto";
+  }
+
+  function normalizePrioridade(p) {
+    const raw = normalizeText(p);
+    const map = {
+      baixa: "baixa",
+      media: "media",
+      alta: "alta",
+      critica: "critica",
+      // aceita rótulos com P1/P2 etc
+      "critica (p1)": "critica",
+      "alta (p2)": "alta",
+      "media (p3)": "media",
+      "baixa (p4)": "baixa",
+    };
+    return map[raw] || "baixa";
+  }
+
+  function parseDateAny(dateStr) {
+    if (!dateStr) return null;
+    if (dateStr instanceof Date) return dateStr;
+    const s = String(dateStr).trim();
+    if (!s) return null;
+
+    // ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:mm:ss)
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      const iso = s.includes("T") ? s : `${s.substring(0, 10)}T00:00:00`;
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    // BR (DD-MM-YYYY ou DD/MM/YYYY)
+    const m = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) {
+      const dd = m[1], mm = m[2], yyyy = m[3];
+      const hh = m[4] || "00", mi = m[5] || "00", ss = m[6] || "00";
+      const iso = `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}`;
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatDateTime(dtStr) {
+    const d = parseDateAny(dtStr);
+    if (!d) return String(dtStr ?? "");
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  async function apiFetch(path, { method = "GET", auth = true, json = true, body, raw = false } = {}) {
+    const headers = {};
+    if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    if (json && body !== undefined) headers["Content-Type"] = "application/json";
+
+    const resp = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : json ? JSON.stringify(body) : body,
     });
+
+    if (resp.status === 401) {
+      if (accessToken) {
+        accessToken = null;
+        localStorage.removeItem(LS_TOKEN_KEY);
+        currentUser = null;
+        atualizarLoginStatus();
+      }
+      const data = await safeJson(resp);
+      const err = new Error(data?.detail || "Não autorizado.");
+      err.status = 401;
+      err.data = data;
+      throw err;
+    }
+
     if (!resp.ok) {
+      const data = await safeJson(resp);
+      const err = new Error(data?.detail || `Erro HTTP ${resp.status}`);
+      err.status = resp.status;
+      err.data = data;
+      throw err;
+    }
+
+    if (raw) return resp;
+
+    const ct = resp.headers.get("content-type") || "";
+    return ct.includes("application/json") ? await resp.json() : await resp.text();
+  }
+
+  // --------------------
+  // Tabs
+  // --------------------
+  function ativarTab(tabIdAtivo, viewIdAtiva) {
+    const tabs = ["tab-abertura", "tab-lista", "tab-dashboard", "tab-calendario", "tab-notas"];
+    const views = ["view-abertura", "view-lista", "view-dashboard", "view-calendario", "view-notas"];
+    tabs.forEach((tid) => $(tid)?.classList.toggle("active", tid === tabIdAtivo));
+    views.forEach((vid) => $(vid)?.classList.toggle("d-none", vid !== viewIdAtiva));
+
+    if (viewIdAtiva === "view-notas") renderNotas();
+  }
+
+  function bindTabs() {
+    $("tab-abertura")?.addEventListener("click", () => ativarTab("tab-abertura", "view-abertura"));
+    $("tab-lista")?.addEventListener("click", async () => {
+      ativarTab("tab-lista", "view-lista");
+      await carregarTickets();
+    });
+    $("tab-dashboard")?.addEventListener("click", async () => {
+      ativarTab("tab-dashboard", "view-dashboard");
+      await carregarDashboard();
+    });
+    $("tab-calendario")?.addEventListener("click", () => ativarTab("tab-calendario", "view-calendario"));
+    $("tab-notas")?.addEventListener("click", () => ativarTab("tab-notas", "view-notas"));
+  }
+
+  // --------------------
+  // Combos / Reference
+  // --------------------
+  async function carregarReference() {
+    try {
+      const data = await apiFetch("/reference", { auth: false });
+      refData = data && typeof data === "object" ? data : null;
+    } catch (err) {
+      console.warn("[EliteDesk] /reference falhou, usando fallback local.", err);
+      refData = null;
+    }
+  }
+
+  function refList(key) {
+    const v = refData?.[key];
+    if (Array.isArray(v) && v.length) return v;
+    return FALLBACK_REF[key] || [];
+  }
+
+  function fillSelect(sel, values, emptyLabel = "Selecione...") {
+    if (!sel) return;
+    sel.innerHTML = "";
+    if (emptyLabel !== null) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = emptyLabel;
+      sel.appendChild(opt);
+    }
+    (values || []).forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+  }
+
+  async function carregarCategorias(setorNome) {
+    const sel = $("categoria");
+    if (!sel) return;
+
+    // Sempre mantém habilitado (pra não “ficar cinza”)
+    if (!setorNome) {
+      fillSelect(sel, refList("categorias"), "Selecione...");
+      return;
+    }
+
+    try {
+      sel.innerHTML = `<option value="">Carregando categorias...</option>`;
+      sel.disabled = true;
+
+      const data = await apiFetch(`/categorias?setor_nome=${encodeURIComponent(setorNome)}`, { auth: false });
+      const nomes = (Array.isArray(data) ? data : [])
+        .map((c) => (typeof c === "string" ? c : c?.nome))
+        .filter(Boolean);
+
+      if (nomes.length) {
+        fillSelect(sel, nomes, "Selecione...");
+        return;
+      }
+    } catch {
+      // fallback
+    }
+
+    fillSelect(sel, refList("categorias"), "Selecione...");
+  }
+
+  function preencherCombosDeReference() {
+    fillSelect($("empresa"), refList("empresas"), "Selecione...");
+    fillSelect($("setor"), refList("setores"), "Selecione...");
+    fillSelect($("categoria"), refList("categorias"), "Selecione...");
+
+    fillSelect($("natureza"), refList("naturezas"), "Selecione...");
+    fillSelect($("canal"), refList("canais"), "Selecione...");
+    fillSelect($("transportadora"), refList("transportadoras"), "Selecione...");
+
+    const filtroSetor = $("filtro-setor");
+    if (filtroSetor && filtroSetor.tagName === "SELECT") {
+      fillSelect(filtroSetor, refList("setores"), "(Todos)");
+    }
+  }
+
+  // --------------------
+  // Preview (Abertura)
+  // --------------------
+  function ensurePreviewExtras() {
+    const prioEl = $("preview-prioridade");
+    const catEl = $("preview-categoria");
+    if (!prioEl || !catEl) return;
+
+    const container = prioEl.parentElement; // div .mb-1
+    if (!container) return;
+
+    const makeBadge = (icon, id, placeholder) => {
+      const span = document.createElement("span");
+      span.className = "badge bg-light text-muted border me-1";
+      span.innerHTML = `<i class="bi ${icon} me-1"></i><span id="${id}">${escapeHtml(placeholder)}</span>`;
+      return span;
+    };
+
+    if (!$("preview-natureza")) container.insertBefore(makeBadge("bi-diagram-2", "preview-natureza", "Natureza"), prioEl);
+    if (!$("preview-canal")) container.insertBefore(makeBadge("bi-broadcast", "preview-canal", "Canal"), prioEl);
+    if (!$("preview-transportadora")) container.insertBefore(makeBadge("bi-truck", "preview-transportadora", "Transportadora"), prioEl);
+  }
+
+  function atualizarPreview() {
+    const pvTit = $("preview-titulo");
+    if (!pvTit) return;
+
+    const empresa = $("empresa")?.value || "Empresa";
+    const setor = $("setor")?.value || "Setor";
+    const cat = $("categoria")?.value || "Categoria";
+    const natureza = $("natureza")?.value || "Natureza";
+    const canal = $("canal")?.value || "Canal";
+    const transp = $("transportadora")?.value || "Transportadora";
+
+    pvTit.textContent = ($("titulo")?.value || "").trim() || "Título do ticket";
+    $("preview-empresa") && ($("preview-empresa").textContent = empresa);
+    $("preview-setor") && ($("preview-setor").textContent = setor);
+    $("preview-categoria") && ($("preview-categoria").textContent = cat);
+
+    $("preview-natureza") && ($("preview-natureza").textContent = natureza);
+    $("preview-canal") && ($("preview-canal").textContent = canal);
+    $("preview-transportadora") && ($("preview-transportadora").textContent = transp);
+
+    const prioRaw = $("prioridade")?.value || "baixa";
+    const prio = normalizePrioridade(prioRaw);
+
+    const pvPrio = $("preview-prioridade");
+    if (pvPrio) {
+      pvPrio.textContent = PRIORIDADE_LABEL[prio] || prio;
+      pvPrio.className = "badge-prioridade " + ({ baixa: "prio-baixa", media: "prio-media", alta: "prio-alta", critica: "prio-critica" }[prio] || "prio-baixa");
+    }
+
+    $("preview-prazo-ideal") && ($("preview-prazo-ideal").textContent = $("prazo_ideal")?.value || "–");
+    $("preview-prazo-limite") && ($("preview-prazo-limite").textContent = $("prazo_limite")?.value || "–");
+
+    $("preview-descricao") && ($("preview-descricao").textContent = ($("descricao")?.value || "").trim() || "A descrição aparecerá aqui conforme você digitar.");
+
+    $("preview-contato-nome") && ($("preview-contato-nome").textContent = ($("contato_nome")?.value || "").trim() || "–");
+    $("preview-contato-email") && ($("preview-contato-email").textContent = ($("contato_email")?.value || "").trim() || "–");
+    $("preview-contato-telefone") && ($("preview-contato-telefone").textContent = ($("contato_telefone")?.value || "").trim() || "–");
+  }
+
+  // --------------------
+  // ELIA – Melhorar texto (stub local)
+  // --------------------
+  function eliaGerarSugestao() {
+    const titulo = ($("titulo")?.value || "").trim();
+    const descricao = ($("descricao")?.value || "").trim();
+
+    if (!titulo && !descricao) {
+      mostrarMensagem("warning", "Preencha Título e/ou Descrição para gerar sugestão.");
+      return null;
+    }
+
+    const ctx = [];
+    const addCtx = (k, v) => v && ctx.push(`${k}: ${v}`);
+
+    addCtx("Empresa", $("empresa")?.value);
+    addCtx("Setor", $("setor")?.value);
+    addCtx("Categoria", $("categoria")?.value);
+    addCtx("Natureza", $("natureza")?.value);
+    addCtx("Canal", $("canal")?.value);
+    addCtx("Transportadora", $("transportadora")?.value);
+    addCtx("Prioridade", PRIORIDADE_LABEL[normalizePrioridade($("prioridade")?.value)] || $("prioridade")?.value);
+    addCtx("Prazo ideal", $("prazo_ideal")?.value);
+    addCtx("Prazo limite", $("prazo_limite")?.value);
+
+    let novoTitulo = titulo || `Ticket - ${$("categoria")?.value || $("setor")?.value || "Assunto"}`;
+    novoTitulo = novoTitulo.replace(/\s+/g, " ").trim();
+    novoTitulo = novoTitulo.charAt(0).toUpperCase() + novoTitulo.slice(1);
+
+    const baseDesc = descricao || "(Descreva aqui o problema, impacto e dados relevantes.)";
+    const novoDesc =
+      `Contexto\n- ${ctx.filter(Boolean).join("\n- ")}\n\n` +
+      `Descrição\n${baseDesc}\n\n` +
+      `Próximo passo sugerido\n- Definir responsável e registrar a próxima ação (ligação/e-mail/contato com transportadora).\n- Atualizar o status e acompanhar o farol/SLA.\n`;
+
+    return { titulo: novoTitulo, descricao: novoDesc };
+  }
+
+  function bindEliaMelhorarTexto() {
+    $("elia-sugerir-texto")?.addEventListener("click", () => {
+      const sug = eliaGerarSugestao();
+      if (!sug) return;
+      $("elia-titulo-sugerido") && ($("elia-titulo-sugerido").value = sug.titulo);
+      $("elia-descricao-sugerida") && ($("elia-descricao-sugerida").value = sug.descricao);
+      $("elia-aplicar-texto") && ($("elia-aplicar-texto").disabled = false);
+      mostrarMensagem("success", "Sugestão gerada (modo local).");
+    });
+
+    $("elia-aplicar-texto")?.addEventListener("click", () => {
+      const t = ($("elia-titulo-sugerido")?.value || "").trim();
+      const d = ($("elia-descricao-sugerida")?.value || "").trim();
+      if (!t && !d) return;
+
+      $("titulo") && ($("titulo").value = t || $("titulo").value);
+      $("descricao") && ($("descricao").value = d || $("descricao").value);
+      $("elia-aplicar-texto") && ($("elia-aplicar-texto").disabled = true);
+      atualizarPreview();
+      mostrarMensagem("success", "Sugestão aplicada no formulário.");
+    });
+  }
+
+  // --------------------
+  // Auth
+  // --------------------
+  function atualizarLoginStatus() {
+    const st = $("login-status");
+    if (currentUser && accessToken) {
+      st && (st.textContent = `Autenticado como ${currentUser.email || "—"} (perfil: ${currentUser.perfil || "—"})`);
+    } else {
+      st && (st.textContent = "Não autenticado.");
+    }
+    $("ea-user-name") && ($("ea-user-name").textContent = currentUser?.email || "Não autenticado");
+    $("ea-user-role") && ($("ea-user-role").textContent = currentUser?.perfil || "–");
+  }
+
+  async function carregarUsuarioAtual() {
+    if (!accessToken) {
       currentUser = null;
-      accessToken = null;
       atualizarLoginStatus();
       return;
     }
-    currentUser = await resp.json();
-    atualizarLoginStatus();
-  } catch (err) {
-    console.error(err);
-    currentUser = null;
-    accessToken = null;
-    atualizarLoginStatus();
-  }
-}
-
-// ========= PRÉ-VISUALIZAÇÃO (ABERTURA) =========
-
-function atualizarPreview() {
-  if (!previewTitulo) return;
-
-  previewTitulo.textContent =
-    document.getElementById("titulo").value.trim() || "Título do ticket";
-  previewEmpresa.textContent = selectEmpresa.value || "Empresa não selecionada";
-  previewSetor.textContent = selectSetor.value || "Setor não selecionado";
-  previewCategoria.textContent =
-    selectCategoria.value || "Categoria não selecionada";
-
-  const prio = document.getElementById("prioridade").value || "baixa";
-  previewPrioridade.textContent = prio;
-  previewPrioridade.className =
-    "badge-prioridade " +
-    {
-      baixa: "prio-baixa",
-      media: "prio-media",
-      alta: "prio-alta",
-      critica: "prio-critica",
-    }[prio];
-
-  previewPrazoIdeal.textContent =
-    document.getElementById("prazo_ideal").value || "–";
-  previewPrazoLimite.textContent =
-    document.getElementById("prazo_limite").value || "–";
-
-  previewDescricao.textContent =
-    document.getElementById("descricao").value.trim() ||
-    "A descrição aparecerá aqui conforme você digitar.";
-
-  previewContatoNome.textContent =
-    document.getElementById("contato_nome").value.trim() || "–";
-  previewContatoEmail.textContent =
-    document.getElementById("contato_email").value.trim() || "–";
-  previewContatoTelefone.textContent =
-    document.getElementById("contato_telefone").value.trim() || "–";
-}
-
-// ========= ELIA – análise (Lista) =========
-
-function selecionarTicketLista(ticket, linha) {
-  ticketSelecionado = ticket;
-
-  // destaca a linha na tabela
-  if (ticketLinhaSelecionada) {
-    ticketLinhaSelecionada.classList.remove("table-active");
-  }
-  if (linha) {
-    ticketLinhaSelecionada = linha;
-    ticketLinhaSelecionada.classList.add("table-active");
-  }
-
-  if (eliaInfoLista) {
-    eliaInfoLista.textContent = `Ticket ${ticket.numero_protocolo} – ${ticket.titulo}`;
-  }
-  if (eliaResumirTicketBtn) eliaResumirTicketBtn.disabled = false;
-  if (eliaPerguntaTicket) eliaPerguntaTicket.disabled = false;
-  if (eliaPerguntarTicketBtn) eliaPerguntarTicketBtn.disabled = false;
-  if (btnRegistrarEvento) btnRegistrarEvento.disabled = false;
-}
-
-// ========= MODAL DE EVENTO (AÇÕES) =========
-
-function abrirModalEvento(ticket) {
-  ticketEventoAlvo = ticket;
-  if (eventoTicketInfo) {
-    eventoTicketInfo.textContent = `Ticket ${ticket.numero_protocolo} – ${ticket.titulo}`;
-  }
-  if (eventoTipoModal) eventoTipoModal.value = "anotacao";
-  if (eventoDetalheModal) eventoDetalheModal.value = "";
-  if (modalEvento) modalEvento.show();
-}
-
-// ========= TICKETS =========
-
-async function atualizarStatus(id, novoStatus) {
-  if (!accessToken) {
-    mostrarMensagem("danger", "Faça login para atualizar status.");
-    return;
-  }
-  try {
-    const resp = await fetch(`${API_BASE}/tickets/${id}/status`, {
-      method: "PATCH",
-      headers: getAuthJsonHeaders(),
-      body: JSON.stringify({ status: novoStatus }),
-    });
-
-    if (resp.status === 401) {
-      mostrarMensagem("danger", "Não autorizado. Faça login novamente.");
-      return;
-    }
-
-    if (!resp.ok) {
-      const erro = await resp.json().catch(() => ({}));
-      console.error(erro);
-      mostrarMensagem("danger", "Erro ao atualizar status.");
-      return;
-    }
-
-    mostrarMensagem("success", "Status atualizado com sucesso.");
-    carregarTickets();
-    carregarResumoGeral();
-    if (!viewDashboard.classList.contains("d-none")) {
-      carregarDashboard();
-    }
-  } catch (err) {
-    console.error(err);
-    mostrarMensagem(
-      "danger",
-      "Falha de comunicação com a API ao atualizar status."
-    );
-  }
-}
-
-async function assumirTicket(id) {
-  if (!accessToken) {
-    mostrarMensagem("danger", "Faça login para assumir tickets.");
-    return;
-  }
-  try {
-    const resp = await fetch(`${API_BASE}/tickets/${id}/assumir`, {
-      method: "PATCH",
-      headers: getAuthHeaders(),
-    });
-
-    if (resp.status === 401) {
-      mostrarMensagem("danger", "Não autorizado. Faça login novamente.");
-      return;
-    }
-
-    if (!resp.ok) {
-      const erro = await resp.json().catch(() => ({}));
-      console.error(erro);
-      mostrarMensagem("danger", "Erro ao assumir ticket.");
-      return;
-    }
-
-    mostrarMensagem("success", "Ticket assumido com sucesso.");
-    carregarTickets();
-    carregarResumoGeral();
-    if (!viewDashboard.classList.contains("d-none")) {
-      carregarDashboard();
-    }
-  } catch (err) {
-    console.error(err);
-    mostrarMensagem(
-      "danger",
-      "Falha de comunicação com a API ao assumir o ticket."
-    );
-  }
-}
-
-async function carregarTickets() {
-  if (!tabelaBody) return;
-  tabelaBody.innerHTML = "<tr><td colspan='11'>Carregando...</td></tr>";
-
-  const params = new URLSearchParams();
-  if (filtroStatus.value) params.append("status", filtroStatus.value);
-  if (filtroSetor.value) params.append("setor", filtroSetor.value);
-  if (filtroPrioridade.value)
-    params.append("prioridade", filtroPrioridade.value);
-  if (filtroProtocolo?.value)
-    params.append("protocolo", filtroProtocolo.value.trim());
-  // filtros de data ainda não suportados no backend — quando tiver, basta descomentar:
-  // if (filtroDataIni.value) params.append("data_ini", filtroDataIni.value);
-  // if (filtroDataFim.value) params.append("data_fim", filtroDataFim.value);
-  // if (filtroPrazoIni.value) params.append("prazo_ini", filtroPrazoIni.value);
-  // if (filtroPrazoFim.value) params.append("prazo_fim", filtroPrazoFim.value);
-
-  if (mostrarMeus) params.append("meus", "true");
-
-  const queryString = params.toString() ? `?${params.toString()}` : "";
-
-  try {
-    const resp = await fetch(`${API_BASE}/tickets${queryString}`, {
-      headers: getAuthHeaders(),
-    });
-
-    if (resp.status === 401) {
-      tabelaBody.innerHTML =
-        "<tr><td colspan='11'>Não autorizado. Faça login para visualizar os tickets.</td></tr>";
-      return;
-    }
-
-    if (!resp.ok) {
-      throw new Error("Erro ao buscar tickets");
-    }
-    const dados = await resp.json();
-
-    if (dados.length === 0) {
-      tabelaBody.innerHTML =
-        "<tr><td colspan='11'>Nenhum ticket encontrado.</td></tr>";
-      return;
-    }
-
-    tabelaBody.innerHTML = "";
-    dados.forEach((t) => {
-      const tr = document.createElement("tr");
-      tr.classList.add("table-row-compact");
-      tr.innerHTML = `
-        <td>${t.id}</td>
-        <td>${t.numero_protocolo}</td>
-        <td>${t.titulo}</td>
-        <td>${t.setor}</td>
-        <td>${badgePrioridade(t.prioridade)}</td>
-        <td>${t.solicitante_email ?? ""}</td>
-        <td>${t.responsavel_email ?? ""}</td>
-        <td>${badgeFarol(t.farol)}</td>
-        <td>${badgeStatus(t.status)}</td>
-        <td>${t.data_abertura}</td>
-        <td>
-          <div class="d-flex flex-wrap gap-1">
-            ${montarSelectStatus(t.status)}
-            <button class="btn btn-sm btn-primary btn-atualizar-status" title="Salvar status">
-              Salvar
-            </button>
-            <button class="btn btn-sm btn-outline-success btn-assumir" title="Assumir ticket">
-              <i class="bi bi-person-check"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-secondary btn-historico" title="Ver histórico">
-              <i class="bi bi-clock-history"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-dark btn-ver" title="Visualizar ticket">
-              <i class="bi bi-eye"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-secondary btn-evento" title="Registrar evento">
-              <i class="bi bi-journal-plus"></i>
-            </button>
-          </div>
-        </td>
-      `;
-
-      tr.addEventListener("click", (e) => {
-        if (e.target.closest("button")) return;
-        selecionarTicketLista(t, tr);
-      });
-
-      const selectStatus = tr.querySelector(".select-status");
-      const btnAtualizar = tr.querySelector(".btn-atualizar-status");
-      const btnAssumir = tr.querySelector(".btn-assumir");
-      const btnHistorico = tr.querySelector(".btn-historico");
-      const btnVer = tr.querySelector(".btn-ver");
-      const btnEvento = tr.querySelector(".btn-evento");
-
-      btnAtualizar.addEventListener("click", (e) => {
-        e.stopPropagation();
-        selecionarTicketLista(t, tr);
-        const novoStatus = selectStatus.value;
-        atualizarStatus(t.id, novoStatus);
-      });
-
-      btnAssumir.addEventListener("click", (e) => {
-        e.stopPropagation();
-        selecionarTicketLista(t, tr);
-        assumirTicket(t.id);
-      });
-
-      btnHistorico.addEventListener("click", (e) => {
-        e.stopPropagation();
-        selecionarTicketLista(t, tr);
-        abrirHistorico(t);
-      });
-
-      btnVer.addEventListener("click", (e) => {
-        e.stopPropagation();
-        selecionarTicketLista(t, tr);
-        abrirVisualizacaoTicket(t);
-      });
-
-      btnEvento.addEventListener("click", (e) => {
-        e.stopPropagation();
-        selecionarTicketLista(t, tr);
-        abrirModalEvento(t);
-      });
-
-      tabelaBody.appendChild(tr);
-    });
-  } catch (err) {
-    console.error(err);
-    tabelaBody.innerHTML =
-      "<tr><td colspan='11'>Erro ao carregar tickets.</td></tr>";
-  }
-}
-
-// ===== RESUMOS =====
-async function carregarResumoGeral() {
-  try {
-    const resp = await fetch(`${API_BASE}/reports/summary`, {
-      headers: getAuthHeaders(),
-    });
-    if (!resp.ok) return;
-    const dados = await resp.json();
-    const byStatus = dados.by_status || {};
-    resumoTotal.textContent = dados.total ?? 0;
-    resumoAberto.textContent = byStatus.aberto ?? 0;
-    resumoEmAtendimento.textContent = byStatus.em_atendimento ?? 0;
-    resumoAguardando.textContent = byStatus.aguardando ?? 0;
-    resumoConcluido.textContent = byStatus.concluido ?? 0;
-    resumoCancelado.textContent = byStatus.cancelado ?? 0;
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function carregarResumoDashboard(params) {
-  try {
-    const resp = await fetch(
-      `${API_BASE}/reports/summary?${params.toString()}`,
-      { headers: getAuthHeaders() }
-    );
-    if (!resp.ok) return;
-    const dados = await resp.json();
-    const byStatus = dados.by_status || {};
-    dashResumoTotal.textContent = dados.total ?? 0;
-    dashResumoAberto.textContent = byStatus.aberto ?? 0;
-    dashResumoEmAtendimento.textContent = byStatus.em_atendimento ?? 0;
-    dashResumoAguardando.textContent = byStatus.aguardando ?? 0;
-    dashResumoConcluido.textContent = byStatus.concluido ?? 0;
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-// ===== GRÁFICOS =====
-function criarChart(ctx, type, labels, values, titulo, chartRef) {
-  if (chartRef) chartRef.destroy();
-  return new Chart(ctx, {
-    type,
-    data: {
-      labels,
-      datasets: [
-        {
-          label: titulo,
-          data: values,
-          backgroundColor: [
-            "#3b82f6",
-            "#22c55e",
-            "#f97316",
-            "#eab308",
-            "#ef4444",
-            "#8b5cf6",
-          ],
-          borderColor: "#ffffff",
-          borderWidth: 1,
-          tension: 0.3,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: type !== "bar" } },
-      scales:
-        type === "bar" || type === "line"
-          ? {
-              y: {
-                beginAtZero: true,
-                ticks: { stepSize: 1 },
-              },
-            }
-          : {},
-    },
-  });
-}
-
-async function carregarChartStatus(params) {
-  try {
-    const resp = await fetch(
-      `${API_BASE}/reports/by_status?${params.toString()}`,
-      { headers: getAuthHeaders() }
-    );
-    if (!resp.ok) return;
-    const dados = await resp.json();
-    const labels = dados.data.map((d) => d.status);
-    const values = dados.data.map((d) => d.quantidade);
-    const ctx = document.getElementById("chart-status").getContext("2d");
-    chartStatus = criarChart(
-      ctx,
-      "pie",
-      labels,
-      values,
-      "Tickets por status",
-      chartStatus
-    );
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function carregarChartSetor(params) {
-  try {
-    const resp = await fetch(
-      `${API_BASE}/reports/by_setor?${params.toString()}`,
-      { headers: getAuthHeaders() }
-    );
-    if (!resp.ok) return;
-    const dados = await resp.json();
-    const labels = dados.data.map((d) => d.setor);
-    const values = dados.data.map((d) => d.quantidade);
-    const ctx = document.getElementById("chart-setor").getContext("2d");
-    chartSetor = criarChart(
-      ctx,
-      "bar",
-      labels,
-      values,
-      "Tickets por setor",
-      chartSetor
-    );
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function carregarChartResponsavel(params) {
-  try {
-    const resp = await fetch(
-      `${API_BASE}/reports/by_responsavel?${params.toString()}`,
-      { headers: getAuthHeaders() }
-    );
-    if (!resp.ok) return;
-    const dados = await resp.json();
-    const labels = dados.data.map((d) => d.responsavel_email);
-    const values = dados.data.map((d) => d.quantidade);
-    const ctx = document.getElementById("chart-responsavel").getContext("2d");
-    chartResponsavel = criarChart(
-      ctx,
-      "line",
-      labels,
-      values,
-      "Tickets por responsável",
-      chartResponsavel
-    );
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function exportarCsvDashboard(params) {
-  try {
-    const resp = await fetch(
-      `${API_BASE}/reports/export_tickets_csv?${params.toString()}`,
-      { headers: getAuthHeaders() }
-    );
-    if (!resp.ok) throw new Error("Erro ao exportar CSV");
-
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "tickets.csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error(err);
-    mostrarMensagem("danger", "Erro ao exportar CSV.");
-  }
-}
-
-async function carregarDashboard() {
-  const params = getPeriodoDashboard();
-  await carregarResumoDashboard(params);
-  await carregarChartStatus(params);
-  await carregarChartSetor(params);
-  await carregarChartResponsavel(params);
-}
-
-// ===== ENTIDADES =====
-async function carregarSetores() {
-  try {
-    const resp = await fetch(`${API_BASE}/setores`, {
-      headers: getAuthHeaders(),
-    });
-    if (!resp.ok) return;
-    const setores = await resp.json();
-
-    if (!setores.length) {
-      selectSetor.innerHTML =
-        "<option value=''>Nenhum setor cadastrado</option>";
-      return;
-    }
-
-    selectSetor.innerHTML = "<option value=''>Selecione...</option>";
-    setores.forEach((s) => {
-      const opt = document.createElement("option");
-      opt.value = s.nome;
-      opt.textContent = s.nome;
-      selectSetor.appendChild(opt);
-    });
-  } catch (err) {
-    console.error(err);
-    selectSetor.innerHTML =
-      "<option value=''>Erro ao carregar setores</option>";
-  }
-}
-
-async function carregarEmpresas() {
-  try {
-    const resp = await fetch(`${API_BASE}/empresas`, {
-      headers: getAuthHeaders(),
-    });
-    if (!resp.ok) return;
-    const empresas = await resp.json();
-
-    if (!empresas.length) {
-      selectEmpresa.innerHTML =
-        "<option value=''>Nenhuma empresa cadastrada</option>";
-      selectEmpresa.disabled = true;
-      return;
-    }
-
-    selectEmpresa.disabled = false;
-    selectEmpresa.innerHTML = "<option value=''>Selecione...</option>";
-    empresas.forEach((e) => {
-      const opt = document.createElement("option");
-      opt.value = e.nome_fantasia;
-      opt.textContent = e.nome_fantasia;
-      selectEmpresa.appendChild(opt);
-    });
-  } catch (err) {
-    console.error(err);
-    selectEmpresa.innerHTML =
-      "<option value=''>Erro ao carregar empresas</option>";
-    selectEmpresa.disabled = true;
-  }
-}
-
-async function carregarCategorias(setorNome) {
-  categoriasPorNome = {};
-
-  if (!setorNome) {
-    selectCategoria.innerHTML =
-      "<option value=''>Selecione um setor primeiro...</option>";
-    selectCategoria.disabled = true;
-    return;
-  }
-
-  try {
-    const resp = await fetch(
-      `${API_BASE}/categorias?setor_nome=${encodeURIComponent(setorNome)}`,
-      { headers: getAuthHeaders() }
-    );
-    if (!resp.ok) return;
-    const categorias = await resp.json();
-
-    if (!categorias.length) {
-      selectCategoria.innerHTML =
-        "<option value=''>Nenhuma categoria cadastrada para este setor</option>";
-      selectCategoria.disabled = true;
-      return;
-    }
-
-    selectCategoria.disabled = false;
-    selectCategoria.innerHTML = "<option value=''>Selecione...</option>";
-    categorias.forEach((c) => {
-      categoriasPorNome[c.nome] = c;
-      const opt = document.createElement("option");
-      opt.value = c.nome;
-      opt.textContent = c.nome;
-      selectCategoria.appendChild(opt);
-    });
-  } catch (err) {
-    console.error(err);
-    selectCategoria.innerHTML =
-      "<option value=''>Erro ao carregar categorias</option>";
-    selectCategoria.disabled = true;
-  }
-}
-
-// ===== HISTÓRICO =====
-async function abrirHistorico(ticket) {
-  if (!accessToken) {
-    mostrarMensagem("danger", "Faça login para ver o histórico.");
-    return;
-  }
-
-  const tbody = document.getElementById("historico-tbody");
-  tbody.innerHTML = "<tr><td colspan='4'>Carregando...</td></tr>";
-  document.getElementById(
-    "modalHistoricoLabel"
-  ).textContent = `Histórico - Ticket ${ticket.numero_protocolo} (#${ticket.id})`;
-
-  if (modalHistorico) modalHistorico.show();
-
-  try {
-    const resp = await fetch(`${API_BASE}/tickets/${ticket.id}/eventos`, {
-      headers: getAuthHeaders(),
-    });
-    if (resp.status === 401) {
-      tbody.innerHTML =
-        "<tr><td colspan='4'>Não autorizado. Faça login.</td></tr>";
-      return;
-    }
-    if (!resp.ok) return;
-    const eventos = await resp.json();
-
-    if (!eventos.length) {
-      tbody.innerHTML =
-        "<tr><td colspan='4'>Nenhum evento encontrado.</td></tr>";
-      return;
-    }
-
-    tbody.innerHTML = "";
-    eventos.forEach((e) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${e.data_evento}</td>
-        <td>${e.tipo}</td>
-        <td>${e.usuario_email ?? ""}</td>
-        <td>${e.detalhe ?? ""}</td>`;
-      tbody.appendChild(tr);
-    });
-  } catch (err) {
-    console.error(err);
-    tbody.innerHTML =
-      "<tr><td colspan='4'>Erro ao carregar histórico.</td></tr>";
-  }
-}
-
-// ===== VISUALIZAÇÃO DE TICKET =====
-function abrirVisualizacaoTicket(t) {
-  if (!modalTicketView || !ticketViewBody) return;
-
-  const detalhesHtml = `
-    <div class="mb-3">
-      <div class="d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-primary">${t.titulo}</h5>
-        <span class="badge bg-light text-muted border">
-          Protocolo: ${t.numero_protocolo}
-        </span>
-      </div>
-      <div class="small text-muted">
-        Aberto em ${t.data_abertura} • Status: ${t.status}
-      </div>
-    </div>
-    <hr />
-    <div class="row mb-2">
-      <div class="col-md-6">
-        <div class="small text-muted">Empresa</div>
-        <div>${t.empresa}</div>
-      </div>
-      <div class="col-md-3">
-        <div class="small text-muted">Setor</div>
-        <div>${t.setor}</div>
-      </div>
-      <div class="col-md-3">
-        <div class="small text-muted">Categoria</div>
-        <div>${t.categoria_nome || "-"}</div>
-      </div>
-    </div>
-    <div class="row mb-2">
-      <div class="col-md-3">
-        <div class="small text-muted">Prioridade</div>
-        <div>${t.prioridade}</div>
-      </div>
-      <div class="col-md-3">
-        <div class="small text-muted">Prazo ideal</div>
-        <div>${t.prazo_ideal}</div>
-      </div>
-      <div class="col-md-3">
-        <div class="small text-muted">Prazo limite</div>
-        <div>${t.prazo_limite}</div>
-      </div>
-    </div>
-    <div class="mb-2">
-      <div class="small text-muted">Solicitante</div>
-      <div>${t.solicitante_email || "-"}</div>
-    </div>
-    <div class="mb-2">
-      <div class="small text-muted">Responsável atual</div>
-      <div>${t.responsavel_email || "-"}</div>
-    </div>
-    <hr />
-    <div class="mb-3">
-      <div class="small text-muted">Descrição</div>
-      <div>${t.descricao}</div>
-    </div>
-    <hr />
-    <h6>Histórico de eventos</h6>
-    <div id="ticket-eventos-list">
-      <div class="small text-muted">Carregando eventos...</div>
-    </div>
-  `;
-
-  ticketViewBody.innerHTML = detalhesHtml;
-  modalTicketView.show();
-
-  // Carregar eventos do backend
-  fetch(`${API_BASE}/tickets/${t.id}/eventos`, { headers: getAuthHeaders() })
-    .then((resp) => {
-      if (!resp.ok) throw new Error("Erro ao buscar eventos");
-      return resp.json();
-    })
-    .then((eventos) => {
-      const container = document.getElementById("ticket-eventos-list");
-      if (!container) return;
-
-      if (!eventos.length) {
-        container.innerHTML =
-          '<div class="small text-muted">Nenhum evento registrado.</div>';
-        return;
-      }
-
-      const itens = eventos
-        .map(
-          (e) => `
-          <div class="border-start ps-2 mb-2">
-            <div class="small text-muted">
-              ${e.data_evento} • ${e.usuario_email || "-"} • ${e.tipo}
-            </div>
-            <div>${e.detalhe || ""}</div>
-          </div>
-        `
-        )
-        .join("");
-
-      container.innerHTML = itens;
-    })
-    .catch((err) => {
-      console.error(err);
-      const container = document.getElementById("ticket-eventos-list");
-      if (container) {
-        container.innerHTML =
-          '<div class="small text-muted text-danger">Erro ao carregar eventos.</div>';
-      }
-    });
-}
-
-if (btnTicketPrint) {
-  btnTicketPrint.addEventListener("click", () => {
-    // imprime apenas o conteúdo do modal de visualização
-    printElementById("ticket-view-body", "Ticket");
-  });
-}
-
-// ===== ELIA MELHORIA (ABERTURA) =====
-eliaSugerirTextoBtn.addEventListener("click", () => {
-  const titulo = document.getElementById("titulo").value.trim();
-  const descricao = document.getElementById("descricao").value.trim();
-
-  if (!titulo && !descricao) {
-    mostrarMensagem(
-      "info",
-      "Preencha o título e/ou a descrição para a ELIA sugerir melhorias."
-    );
-    return;
-  }
-
-  const tituloSug = titulo
-    ? titulo.charAt(0).toUpperCase() + titulo.slice(1)
-    : "";
-  let descricaoSug = descricao;
-  if (descricao) {
-    const trimmed = descricao.trim();
-    const temPontuacaoFinal = /[.!?]$/.test(trimmed);
-    descricaoSug = temPontuacaoFinal ? trimmed : trimmed + ".";
-  }
-
-  eliaTituloSugeridoInput.value = tituloSug || titulo;
-  eliaDescricaoSugeridaInput.value = descricaoSug || descricao;
-  eliaAplicarTextoBtn.disabled = false;
-});
-
-eliaAplicarTextoBtn.addEventListener("click", () => {
-  const tituloSug = eliaTituloSugeridoInput.value.trim();
-  const descricaoSug = eliaDescricaoSugeridaInput.value.trim();
-
-  if (!tituloSug && !descricaoSug) {
-    mostrarMensagem("info", "Nenhuma sugestão para aplicar.");
-    return;
-  }
-
-  if (tituloSug) document.getElementById("titulo").value = tituloSug;
-  if (descricaoSug) document.getElementById("descricao").value = descricaoSug;
-
-  atualizarPreview();
-  mostrarMensagem(
-    "success",
-    "Sugestão aplicada. Revise o texto antes de salvar."
-  );
-});
-
-// ===== ELIA ANÁLISE LISTA =====
-eliaResumirTicketBtn.addEventListener("click", () => {
-  if (!ticketSelecionado) {
-    mostrarMensagem("danger", "Selecione um ticket na tabela.");
-    return;
-  }
-  const t = ticketSelecionado;
-  const resumo = [
-    `Resumo do ticket ${t.numero_protocolo} (#${t.id}):`,
-    "",
-    `Título: ${t.titulo}`,
-    `Empresa: ${t.empresa}`,
-    `Setor: ${t.setor}`,
-    `Categoria: ${t.categoria_nome || "não informada"}`,
-    `Prioridade: ${t.prioridade}`,
-    `Status atual: ${t.status}`,
-    `Solicitante: ${t.solicitante_email || "não informado"}`,
-    `Responsável: ${t.responsavel_email || "não definido"}`,
-    "",
-    "Descrição:",
-    t.descricao,
-  ].join("\n");
-
-  eliaRespostaTicketDiv.textContent = resumo;
-});
-
-eliaPerguntarTicketBtn.addEventListener("click", () => {
-  if (!ticketSelecionado) {
-    mostrarMensagem("danger", "Selecione um ticket na tabela.");
-    return;
-  }
-  const pergunta = eliaPerguntaTicket.value.trim();
-  if (!pergunta) {
-    mostrarMensagem("info", "Digite uma pergunta para a ELIA.");
-    return;
-  }
-
-  const t = ticketSelecionado;
-  const resposta = [
-    `Pergunta sobre o ticket ${t.numero_protocolo}:`,
-    `"${pergunta}"`,
-    "",
-    "[Resposta simulada da ELIA]",
-    "Nesta versão, a resposta é um texto de exemplo.",
-    "Na futura integração com o ChatGPT, a ELIA analisará o contexto completo do ticket e responderá de forma mais rica.",
-  ].join("\n");
-
-  eliaRespostaTicketDiv.textContent = resposta;
-});
-
-// ===== REGISTRO DE EVENTO (CARD) =====
-if (btnRegistrarEvento) {
-  btnRegistrarEvento.addEventListener("click", async () => {
-    if (!ticketSelecionado) {
-      mostrarMensagem("danger", "Selecione um ticket na tabela.");
-      return;
-    }
-    if (!accessToken) {
-      mostrarMensagem("danger", "Faça login para registrar eventos.");
-      return;
-    }
-
-    const tipo = eventoTipo.value || "anotacao";
-    const detalhe = eventoDetalhe.value.trim();
-
-    if (!detalhe) {
-      mostrarMensagem("info", "Digite o detalhe do evento.");
-      return;
-    }
-
     try {
-      const resp = await fetch(
-        `${API_BASE}/tickets/${ticketSelecionado.id}/eventos`,
-        {
-          method: "POST",
-          headers: getAuthJsonHeaders(),
-          body: JSON.stringify({ tipo, detalhe }),
-        }
-      );
-
-      if (resp.status === 401) {
-        mostrarMensagem("danger", "Não autorizado. Faça login novamente.");
-        return;
-      }
-
-      if (!resp.ok) {
-        const erro = await resp.json().catch(() => ({}));
-        console.error(erro);
-        mostrarMensagem("danger", "Erro ao registrar evento.");
-        return;
-      }
-
-      await resp.json();
-      mostrarMensagem("success", "Evento registrado com sucesso.");
-      eventoDetalhe.value = "";
-    } catch (err) {
-      console.error(err);
-      mostrarMensagem(
-        "danger",
-        "Falha de comunicação com a API ao registrar evento."
-      );
+      currentUser = await apiFetch("/users/me", { auth: true });
+    } catch {
+      currentUser = null;
     }
-  });
-}
+    atualizarLoginStatus();
+  }
 
-// ===== REGISTRO DE EVENTO (MODAL) =====
-if (btnSalvarEventoModal) {
-  btnSalvarEventoModal.addEventListener("click", async () => {
-    if (!ticketEventoAlvo) {
-      mostrarMensagem("danger", "Nenhum ticket selecionado para evento.");
-      return;
-    }
-    if (!accessToken) {
-      mostrarMensagem("danger", "Faça login para registrar eventos.");
-      return;
-    }
+  async function login(email, senha) {
+    const body = new URLSearchParams();
+    body.append("username", email);
+    body.append("password", senha);
 
-    const tipo = eventoTipoModal.value || "anotacao";
-    const detalhe = eventoDetalheModal.value.trim();
-    if (!detalhe) {
-      mostrarMensagem("info", "Digite o detalhe do evento.");
-      return;
-    }
-
-    try {
-      const resp = await fetch(
-        `${API_BASE}/tickets/${ticketEventoAlvo.id}/eventos`,
-        {
-          method: "POST",
-          headers: getAuthJsonHeaders(),
-          body: JSON.stringify({ tipo, detalhe }),
-        }
-      );
-      if (resp.status === 401) {
-        mostrarMensagem("danger", "Não autorizado. Faça login novamente.");
-        return;
-      }
-      if (!resp.ok) {
-        const erro = await resp.json().catch(() => ({}));
-        console.error(erro);
-        mostrarMensagem("danger", "Erro ao registrar evento.");
-        return;
-      }
-
-      await resp.json();
-      mostrarMensagem("success", "Evento registrado com sucesso.");
-      eventoDetalheModal.value = "";
-      if (modalEvento) modalEvento.hide();
-    } catch (err) {
-      console.error(err);
-      mostrarMensagem(
-        "danger",
-        "Falha de comunicação com a API ao registrar evento."
-      );
-    }
-  });
-}
-
-// ===== HANDLERS UI (TABS) =====
-tabAbertura.addEventListener("click", () => {
-  tabAbertura.classList.add("active");
-  tabLista.classList.remove("active");
-  tabDashboard.classList.remove("active");
-  viewAbertura.classList.remove("d-none");
-  viewLista.classList.add("d-none");
-  viewDashboard.classList.add("d-none");
-});
-
-tabLista.addEventListener("click", () => {
-  tabLista.classList.add("active");
-  tabAbertura.classList.remove("active");
-  tabDashboard.classList.remove("active");
-  viewLista.classList.remove("d-none");
-  viewAbertura.classList.add("d-none");
-  viewDashboard.classList.add("d-none");
-  carregarTickets();
-});
-
-tabDashboard.addEventListener("click", () => {
-  tabDashboard.classList.add("active");
-  tabAbertura.classList.remove("active");
-  tabLista.classList.remove("active");
-  viewDashboard.classList.remove("d-none");
-  viewAbertura.classList.add("d-none");
-  viewLista.classList.add("d-none");
-  carregarDashboard();
-});
-
-// LIMPAR FILTROS DA LISTA
-if (btnLimparFiltros) {
-  btnLimparFiltros.addEventListener("click", () => {
-    filtroStatus.value = "";
-    filtroSetor.value = "";
-    filtroPrioridade.value = "";
-    if (filtroProtocolo) filtroProtocolo.value = "";
-    if (filtroDataIni) filtroDataIni.value = "";
-    if (filtroDataFim) filtroDataFim.value = "";
-    if (filtroPrazoIni) filtroPrazoIni.value = "";
-    if (filtroPrazoFim) filtroPrazoFim.value = "";
-    mostrarMeus = false;
-    carregarTickets();
-  });
-}
-
-// LOGIN
-loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const email = document.getElementById("login-email").value;
-  const senha = document.getElementById("login-senha").value;
-
-  const body = new URLSearchParams();
-  body.append("username", email);
-  body.append("password", senha);
-
-  try {
     const resp = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -1294,222 +542,1112 @@ loginForm.addEventListener("submit", async (e) => {
     });
 
     if (!resp.ok) {
-      const erro = await resp.json().catch(() => ({}));
-      console.error(erro);
-      mostrarMensagem("danger", "E-mail ou senha inválidos.");
-      return;
+      const data = await safeJson(resp);
+      throw new Error(data?.detail || "E-mail ou senha inválidos.");
     }
 
     const data = await resp.json();
+    if (!data?.access_token) throw new Error("API não retornou access_token.");
+
     accessToken = data.access_token;
+    localStorage.setItem(LS_TOKEN_KEY, accessToken);
     await carregarUsuarioAtual();
-    mostrarMensagem("success", "Login realizado com sucesso.");
-    carregarTickets();
-    carregarResumoGeral();
-    if (!viewDashboard.classList.contains("d-none")) {
-      carregarDashboard();
-    }
-  } catch (err) {
-    console.error(err);
-    mostrarMensagem("danger", "Falha de comunicação ao fazer login.");
-  }
-});
-
-btnLogout.addEventListener("click", () => {
-  accessToken = null;
-  currentUser = null;
-  atualizarLoginStatus();
-  mostrarMensagem("success", "Logout realizado.");
-  tabelaBody.innerHTML =
-    "<tr><td colspan='11'>Não autenticado. Faça login para visualizar os tickets.</td></tr>";
-});
-
-// FORM / PREVIEW
-form.addEventListener("input", atualizarPreview);
-
-// SUBMIT TICKET
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (!accessToken) {
-    mostrarMensagem("danger", "Faça login para abrir tickets.");
-    return;
   }
 
-  const payload = {
-    empresa: selectEmpresa.value,
-    setor: selectSetor.value,
-    categoria_nome: selectCategoria.value || null,
-    titulo: document.getElementById("titulo").value,
-    descricao: document.getElementById("descricao").value,
-    prioridade: document.getElementById("prioridade").value,
-    prazo_ideal: document.getElementById("prazo_ideal").value,
-    prazo_limite: document.getElementById("prazo_limite").value,
-    contato_nome: document.getElementById("contato_nome").value,
-    contato_email: document.getElementById("contato_email").value,
-    contato_telefone: document.getElementById("contato_telefone").value,
-  };
+  function logout() {
+    accessToken = null;
+    currentUser = null;
+    localStorage.removeItem(LS_TOKEN_KEY);
+    atualizarLoginStatus();
 
-  try {
-    const resp = await fetch(`${API_BASE}/tickets`, {
-      method: "POST",
-      headers: getAuthJsonHeaders(),
-      body: JSON.stringify(payload),
+    const tbody = document.querySelector("#tabela-tickets tbody");
+    if (tbody) tbody.innerHTML = "<tr><td colspan='11'>Não autenticado. Faça login para visualizar os tickets.</td></tr>";
+  }
+
+  // --------------------
+  // Tickets (badges + seleção)
+  // --------------------
+  function badgeFarol(f) {
+    if (f === "verde") return '<span class="badge badge-farol-verde">Verde</span>';
+    if (f === "amarelo") return '<span class="badge badge-farol-amarelo">Amarelo</span>';
+    if (f === "vermelho") return '<span class="badge badge-farol-vermelho">Vermelho</span>';
+    return escapeHtml(f ?? "");
+  }
+
+  function badgePrioridade(pRaw) {
+    const p = normalizePrioridade(pRaw);
+    const cls = { baixa: "prio-baixa", media: "prio-media", alta: "prio-alta", critica: "prio-critica" }[p] || "prio-baixa";
+    return `<span class="badge-prioridade ${cls}">${escapeHtml(PRIORIDADE_LABEL[p] || p)}</span>`;
+  }
+
+  function badgeStatus(statusRaw, farolRaw) {
+    const s = normalizeStatus(statusRaw);
+    const farol = String(farolRaw || "").toLowerCase();
+
+    let cls =
+      { aberto: "status-aberto", em_atendimento: "status-em_atendimento", aguardando: "status-aguardando", concluido: "status-concluido", cancelado: "status-cancelado" }[s] ||
+      "status-aberto";
+
+    // “Atrasado” visual se farol vermelho e não concluído/cancelado
+    if (farol === "vermelho" && !["concluido", "cancelado"].includes(s)) cls = "status-atrasado";
+
+    return `<span class="badge-status ${cls}">${escapeHtml(STATUS_LABEL[s] || s)}</span>`;
+  }
+
+  function montarSelectStatus(valorAtualRaw, idTicket) {
+    const valorAtual = normalizeStatus(valorAtualRaw);
+    let html = `<select class="form-select form-select-sm select-status" data-id="${idTicket}">`;
+    STATUS_OPTIONS.forEach((opt) => {
+      const sel = opt.value === valorAtual ? "selected" : "";
+      html += `<option value="${opt.value}" ${sel}>${opt.label}</option>`;
     });
+    html += `</select>`;
+    return html;
+  }
 
-    if (resp.status === 401) {
-      mostrarMensagem("danger", "Não autorizado. Faça login novamente.");
-      return;
+  function selecionarTicketLista(ticket, linha) {
+    ticketSelecionado = ticket;
+
+    if (ticketLinhaSelecionada) ticketLinhaSelecionada.classList.remove("table-active");
+    if (linha) {
+      ticketLinhaSelecionada = linha;
+      linha.classList.add("table-active");
     }
 
-    if (!resp.ok) {
-      const erro = await resp.json().catch(() => ({}));
-      console.error(erro);
-      mostrarMensagem("danger", "Erro ao criar ticket. Verifique os campos.");
-      return;
-    }
-
-    const ticket = await resp.json();
-    mostrarMensagem(
-      "success",
-      `Ticket criado com sucesso! Protocolo: ${ticket.numero_protocolo}`
-    );
-    form.reset();
-    eliaTituloSugeridoInput.value = "";
-    eliaDescricaoSugeridaInput.value = "";
-    eliaAplicarTextoBtn.disabled = false;
-    atualizarPreview();
-    carregarTickets();
-    carregarResumoGeral();
-    if (!viewDashboard.classList.contains("d-none")) {
-      carregarDashboard();
-    }
-  } catch (err) {
-    console.error(err);
-    mostrarMensagem("danger", "Falha de comunicação com a API.");
+    $("elia-info-lista") && ($("elia-info-lista").textContent = `Ticket ${ticket.numero_protocolo} – ${ticket.titulo}`);
+    $("elia-resumir-ticket")?.removeAttribute("disabled");
+    $("elia-pergunta-ticket")?.removeAttribute("disabled");
+    $("elia-perguntar-ticket")?.removeAttribute("disabled");
+    $("btn-registrar-evento")?.removeAttribute("disabled");
   }
-});
 
-btnRecarregar.addEventListener("click", () => {
-  carregarTickets();
-  carregarResumoGeral();
-  if (!viewDashboard.classList.contains("d-none")) {
-    carregarDashboard();
+  function buildTicketsQS() {
+    const p = new URLSearchParams();
+    const add = (k, v) => {
+      const s = (v ?? "").toString().trim();
+      if (s) p.append(k, s);
+    };
+
+    add("status", $("filtro-status")?.value);
+    add("setor", $("filtro-setor")?.value);
+    add("prioridade", $("filtro-prioridade")?.value);
+    add("protocolo", $("filtro-protocolo")?.value);
+    add("solicitante", $("filtro-solicitante")?.value);
+    add("responsavel", $("filtro-responsavel")?.value);
+
+    add("data_ini", $("filtro-data-ini")?.value);
+    add("data_fim", $("filtro-data-fim")?.value);
+    add("prazo_ini", $("filtro-prazo-ini")?.value);
+    add("prazo_fim", $("filtro-prazo-fim")?.value);
+
+    if (mostrarMeus) add("meus", "true");
+
+    const qs = p.toString();
+    return qs ? `?${qs}` : "";
   }
-});
 
-btnAplicarFiltros.addEventListener("click", carregarTickets);
+  async function carregarTickets() {
+    const tbody = document.querySelector("#tabela-tickets tbody");
+    if (!tbody) return;
 
-btnMeus.addEventListener("click", () => {
-  if (!accessToken) {
-    mostrarMensagem("danger", "Faça login para ver seus tickets.");
-    return;
-  }
-  mostrarMeus = true;
-  carregarTickets();
-});
-
-btnTodos.addEventListener("click", () => {
-  mostrarMeus = false;
-  carregarTickets();
-});
-
-selectSetor.addEventListener("change", () => {
-  const setorSelecionado = selectSetor.value;
-  selectCategoria.innerHTML =
-    "<option value=''>Carregando categorias...</option>";
-  document.getElementById("prazo_ideal").value = "";
-  document.getElementById("prazo_limite").value = "";
-  carregarCategorias(setorSelecionado);
-  atualizarPreview();
-});
-
-selectCategoria.addEventListener("change", atualizarPreview);
-
-// DASHBOARD
-btnDashAplicar.addEventListener("click", () => {
-  if (!accessToken) {
-    mostrarMensagem("danger", "Faça login para ver o dashboard.");
-    return;
-  }
-  carregarDashboard();
-});
-
-// LIMPAR FILTROS DO DASHBOARD
-if (btnDashLimpar) {
-  btnDashLimpar.addEventListener("click", () => {
-    if (dashDataIni) dashDataIni.value = "";
-    if (dashDataFim) dashDataFim.value = "";
-    if (!accessToken) return;
-    carregarDashboard();
-  });
-}
-
-// EXPORTAR CSV DO DASHBOARD (opcional)
-if (btnDashExport) {
-  btnDashExport.addEventListener("click", () => {
     if (!accessToken) {
-      mostrarMensagem("danger", "Faça login para exportar CSV.");
-      return;
-    }
-    const params = getPeriodoDashboard();
-    exportarCsvDashboard(params);
-  });
-}
-
-// EXPORTAR CSV DA LISTA
-if (btnListExport) {
-  btnListExport.addEventListener("click", async () => {
-    if (!accessToken) {
-      mostrarMensagem("danger", "Faça login para exportar CSV.");
+      tbody.innerHTML = "<tr><td colspan='11'>Não autenticado. Faça login para visualizar os tickets.</td></tr>";
       return;
     }
 
-    const params = new URLSearchParams();
-    if (filtroStatus.value) params.append("status", filtroStatus.value);
-    if (filtroSetor.value) params.append("setor", filtroSetor.value);
-    if (filtroPrioridade.value)
-      params.append("prioridade", filtroPrioridade.value);
+    tbody.innerHTML = "<tr><td colspan='11'>Carregando...</td></tr>";
+    ticketsById = new Map();
+    ticketsCache = [];
 
     try {
-      const resp = await fetch(
-        `${API_BASE}/reports/export_tickets_csv?${params.toString()}`,
-        { headers: getAuthHeaders() }
-      );
-      if (!resp.ok) throw new Error("Erro ao exportar CSV");
+      const dados = await apiFetch(`/tickets${buildTicketsQS()}`, { auth: true });
+      if (!Array.isArray(dados) || !dados.length) {
+        tbody.innerHTML = "<tr><td colspan='11'>Nenhum ticket encontrado.</td></tr>";
+        return;
+      }
 
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "tickets.csv";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      ticketsCache = dados;
+      dados.forEach((t) => ticketsById.set(String(t.id), t));
+
+      tbody.innerHTML = "";
+      dados.forEach((t) => {
+        const tr = document.createElement("tr");
+        tr.dataset.id = String(t.id);
+        tr.classList.add("table-row-compact");
+
+        const statusCode = normalizeStatus(t.status);
+        const prioCode = normalizePrioridade(t.prioridade);
+
+        tr.innerHTML = `
+          <td>${escapeHtml(t.id ?? "")}</td>
+          <td>${escapeHtml(t.numero_protocolo ?? "")}</td>
+          <td>${escapeHtml(t.titulo ?? "")}</td>
+          <td>${escapeHtml(t.setor ?? "")}</td>
+          <td>${badgePrioridade(prioCode)}</td>
+          <td>${escapeHtml(t.solicitante_email ?? "")}</td>
+          <td>${escapeHtml(t.responsavel_email ?? "")}</td>
+          <td>${badgeFarol(t.farol)}</td>
+          <td>${badgeStatus(statusCode, t.farol)}</td>
+          <td>${escapeHtml(formatDateTime(t.data_abertura))}</td>
+          <td>
+            <div class="d-flex flex-wrap gap-1 align-items-center">
+              ${montarSelectStatus(statusCode, t.id)}
+              <button class="btn btn-sm btn-primary" data-action="salvar-status" data-id="${t.id}">Salvar</button>
+
+              <button class="btn btn-sm btn-outline-success" data-action="assumir" data-id="${t.id}" title="Assumir ticket">
+                <i class="bi bi-person-check"></i>
+              </button>
+
+              <button class="btn btn-sm btn-outline-secondary" data-action="ver-ticket" data-id="${t.id}" title="Ver ticket">
+                <i class="bi bi-eye"></i>
+              </button>
+
+              <button class="btn btn-sm btn-outline-secondary" data-action="ver-historico" data-id="${t.id}" title="Ver histórico">
+                <i class="bi bi-clock-history"></i>
+              </button>
+
+              <button class="btn btn-sm btn-outline-primary" data-action="evento-rapido" data-id="${t.id}" title="Registrar evento">
+                <i class="bi bi-journal-plus"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
     } catch (err) {
-      console.error(err);
-      mostrarMensagem("danger", "Erro ao exportar CSV.");
+      console.error("carregarTickets:", err);
+      tbody.innerHTML = "<tr><td colspan='11'>Erro ao carregar tickets.</td></tr>";
+      mostrarMensagem("danger", err?.data?.detail || "Erro ao carregar tickets.");
+    }
+  }
+
+  async function atualizarStatus(id, novoStatus) {
+    try {
+      await apiFetch(`/tickets/${id}/status`, { method: "PATCH", auth: true, json: true, body: { status: novoStatus } });
+      mostrarMensagem("success", "Status atualizado.");
+      await carregarTickets();
+      await carregarResumoGeral();
+    } catch (err) {
+      console.error("atualizarStatus:", err);
+      mostrarMensagem("danger", err?.data?.detail || "Erro ao atualizar status.");
+    }
+  }
+
+  async function assumirTicket(id) {
+    try {
+      await apiFetch(`/tickets/${id}/assumir`, { method: "PATCH", auth: true, json: false });
+      mostrarMensagem("success", "Ticket assumido.");
+      await carregarTickets();
+      await carregarResumoGeral();
+    } catch (err) {
+      console.error("assumirTicket:", err);
+      mostrarMensagem("danger", err?.data?.detail || "Erro ao assumir ticket (confira se a rota /tickets/{id}/assumir existe no backend).");
+    }
+  }
+
+  // --------------------
+  // Modais (Ticket / Histórico)
+  // --------------------
+  function ensureModals() {
+    if ($("modal-ticket")) return;
+
+    const html = `
+      <div class="modal fade" id="modal-ticket" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="modal-ticket-title">Ticket</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body" id="modal-ticket-body"></div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-copiar-protocolo">
+                <i class="bi bi-clipboard me-1"></i>Copiar protocolo
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Fechar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="modal-historico" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="modal-historico-title">Histórico</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body" id="modal-historico-body"></div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Fechar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    const wrap = document.createElement("div");
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap);
+  }
+
+  function showModal(modalId) {
+    const el = $(modalId);
+    if (!el) return;
+    if (window.bootstrap?.Modal) {
+      window.bootstrap.Modal.getOrCreateInstance(el).show();
+    } else {
+      // fallback: sem bootstrap (não deve acontecer)
+      el.classList.add("show");
+      el.style.display = "block";
+    }
+  }
+
+  async function copiarTexto(texto) {
+    const t = String(texto || "").trim();
+    if (!t) return;
+
+    try {
+      await navigator.clipboard.writeText(t);
+      mostrarMensagem("success", "Copiado para a área de transferência.");
+      return;
+    } catch {
+      // fallback
+      const ta = document.createElement("textarea");
+      ta.value = t;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      mostrarMensagem("success", "Copiado para a área de transferência.");
+    }
+  }
+
+  async function abrirModalTicket(id) {
+    const t = ticketsById.get(String(id));
+    if (!t) return;
+
+    const statusCode = normalizeStatus(t.status);
+    const prioCode = normalizePrioridade(t.prioridade);
+
+    $("modal-ticket-title") && ($("modal-ticket-title").textContent = `${t.numero_protocolo || "Ticket"} — ${t.titulo || ""}`);
+
+    const body = `
+      <div class="mb-2">
+        ${badgeStatus(statusCode, t.farol)} ${badgeFarol(t.farol)} ${badgePrioridade(prioCode)}
+      </div>
+
+      <div class="row g-2 mb-2">
+        <div class="col-md-6"><div class="small text-muted">Empresa</div><div>${escapeHtml(t.empresa || "—")}</div></div>
+        <div class="col-md-6"><div class="small text-muted">Setor</div><div>${escapeHtml(t.setor || "—")}</div></div>
+        <div class="col-md-6"><div class="small text-muted">Categoria</div><div>${escapeHtml(t.categoria_nome || "—")}</div></div>
+        <div class="col-md-6"><div class="small text-muted">Responsável</div><div>${escapeHtml(t.responsavel_email || "—")}</div></div>
+        <div class="col-md-6"><div class="small text-muted">Solicitante</div><div>${escapeHtml(t.solicitante_email || "—")}</div></div>
+        <div class="col-md-6"><div class="small text-muted">Abertura</div><div>${escapeHtml(formatDateTime(t.data_abertura))}</div></div>
+      </div>
+
+      <div class="row g-2 mb-2">
+        <div class="col-md-4"><div class="small text-muted">Natureza</div><div>${escapeHtml(t.natureza || "—")}</div></div>
+        <div class="col-md-4"><div class="small text-muted">Canal</div><div>${escapeHtml(t.canal || "—")}</div></div>
+        <div class="col-md-4"><div class="small text-muted">Transportadora</div><div>${escapeHtml(t.transportadora || "—")}</div></div>
+      </div>
+
+      <div class="mb-2">
+        <div class="small text-muted">Descrição</div>
+        <div class="border rounded p-2" style="white-space: pre-wrap;">${escapeHtml(t.descricao || "")}</div>
+      </div>
+
+      <div class="row g-2">
+        <div class="col-md-4"><div class="small text-muted">Contato</div><div>${escapeHtml(t.contato_nome || "—")}</div></div>
+        <div class="col-md-4"><div class="small text-muted">E-mail</div><div>${escapeHtml(t.contato_email || "—")}</div></div>
+        <div class="col-md-4"><div class="small text-muted">Telefone</div><div>${escapeHtml(t.contato_telefone || "—")}</div></div>
+      </div>
+    `;
+
+    $("modal-ticket-body") && ($("modal-ticket-body").innerHTML = body);
+
+    $("btn-copiar-protocolo") &&
+      ($("btn-copiar-protocolo").onclick = () => copiarTexto(t.numero_protocolo || ""));
+
+    showModal("modal-ticket");
+  }
+
+  async function abrirModalHistorico(id) {
+    const t = ticketsById.get(String(id));
+    if (!t) return;
+
+    $("modal-historico-title") && ($("modal-historico-title").textContent = `Histórico — ${t.numero_protocolo || "Ticket"}`);
+
+    const container = $("modal-historico-body");
+    if (container) container.innerHTML = "<div class='text-muted'>Carregando histórico...</div>";
+
+    try {
+      const eventos = await apiFetch(`/tickets/${id}/eventos`, { auth: true });
+      const list = Array.isArray(eventos) ? eventos : [];
+
+      if (!list.length) {
+        container && (container.innerHTML = "<div class='text-muted'>Nenhum evento registrado.</div>");
+      } else {
+        const items = list
+          .slice()
+          .reverse()
+          .map((e) => {
+            const data = formatDateTime(e.data_evento);
+            const tipo = e.tipo || "anotacao";
+            const det = e.detalhe || "";
+            const user = e.usuario_email || "";
+            return `
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                  <div><strong>${escapeHtml(tipo)}</strong></div>
+                  <div class="small text-muted">${escapeHtml(data)}</div>
+                </div>
+                <div class="small text-muted">${escapeHtml(user)}</div>
+                <div style="white-space: pre-wrap;">${escapeHtml(det)}</div>
+              </div>
+            `;
+          })
+          .join("");
+
+        container &&
+          (container.innerHTML = `<div class="list-group">${items}</div>`);
+      }
+
+      showModal("modal-historico");
+    } catch (err) {
+      console.error("abrirModalHistorico:", err);
+      container && (container.innerHTML = "<div class='text-danger'>Erro ao carregar histórico.</div>");
+      mostrarMensagem("danger", err?.data?.detail || "Erro ao carregar histórico.");
+    }
+  }
+
+  // --------------------
+  // Registro manual de evento (card da Lista)
+  // --------------------
+  async function registrarEventoNoSelecionado() {
+    if (!ticketSelecionado) {
+      mostrarMensagem("warning", "Selecione um ticket na tabela antes de registrar evento.");
+      return;
+    }
+
+    const tipo = $("evento-tipo")?.value || "anotacao";
+    const detalhe = ($("evento-detalhe")?.value || "").trim();
+
+    if (!detalhe) {
+      mostrarMensagem("warning", "Preencha o campo DETALHE do evento.");
+      return;
+    }
+
+    try {
+      await apiFetch(`/tickets/${ticketSelecionado.id}/eventos`, {
+        method: "POST",
+        auth: true,
+        json: true,
+        body: { tipo, detalhe },
+      });
+
+      $("evento-detalhe") && ($("evento-detalhe").value = "");
+      mostrarMensagem("success", "Evento registrado com sucesso.");
+
+      // opcional: abrir histórico pra confirmar
+      // await abrirModalHistorico(ticketSelecionado.id);
+    } catch (err) {
+      console.error("registrarEventoNoSelecionado:", err);
+      mostrarMensagem("danger", err?.data?.detail || "Erro ao registrar evento.");
+    }
+  }
+
+  // --------------------
+  // ELIA – Lista (stub local)
+  // --------------------
+  async function getEventosSelecionadoSafe() {
+    if (!ticketSelecionado) return [];
+    try {
+      const ev = await apiFetch(`/tickets/${ticketSelecionado.id}/eventos`, { auth: true });
+      return Array.isArray(ev) ? ev : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function eliaSetResposta(texto) {
+    const div = $("elia-resposta-ticket");
+    if (!div) return;
+    div.innerHTML = `<pre class="mb-0" style="white-space: pre-wrap;">${escapeHtml(texto)}</pre>`;
+  }
+
+  function gerarResumoLocal(t, eventos) {
+    const s = normalizeStatus(t.status);
+    const p = normalizePrioridade(t.prioridade);
+
+    const linhas = [];
+    linhas.push(`Protocolo: ${t.numero_protocolo}`);
+    linhas.push(`Título: ${t.titulo}`);
+    linhas.push(`Status: ${STATUS_LABEL[s] || s} | Farol: ${t.farol} | Prioridade: ${PRIORIDADE_LABEL[p] || p}`);
+    linhas.push(`Empresa: ${t.empresa} | Setor: ${t.setor} | Categoria: ${t.categoria_nome || "—"}`);
+    linhas.push(`Natureza: ${t.natureza || "—"} | Canal: ${t.canal || "—"} | Transportadora: ${t.transportadora || "—"}`);
+    linhas.push(`Solicitante: ${t.solicitante_email || "—"} | Responsável: ${t.responsavel_email || "—"}`);
+    linhas.push(`Abertura: ${formatDateTime(t.data_abertura)}`);
+    linhas.push("");
+    linhas.push("Descrição:");
+    linhas.push(t.descricao || "");
+    linhas.push("");
+
+    const ult = (eventos || []).slice().reverse().slice(0, 5);
+    if (ult.length) {
+      linhas.push("Últimos eventos:");
+      ult.forEach((e) => {
+        linhas.push(`- ${formatDateTime(e.data_evento)} | ${e.tipo}: ${e.detalhe || ""}`);
+      });
+      linhas.push("");
+    }
+
+    linhas.push("Próximo passo sugerido:");
+    if (t.farol === "vermelho" && !["concluido", "cancelado"].includes(s)) {
+      linhas.push("- Ticket em ATRASO: registrar ação imediata e atualizar responsável/status.");
+    } else {
+      linhas.push("- Registrar a próxima interação (cliente/transportadora/fornecedor) e acompanhar o prazo.");
+    }
+
+    return linhas.join("\n");
+  }
+
+  function responderPerguntaLocal(t, eventos, pergunta) {
+    const q = normalizeText(pergunta);
+    const s = normalizeStatus(t.status);
+
+    if (!q) return "Escreva uma pergunta para a ELIA responder.";
+
+    if (q.includes("encerrar") || q.includes("concluir") || q.includes("finalizar")) {
+      return [
+        "Para encerrar com segurança:",
+        "1) Confirme com o solicitante/cliente que o problema foi resolvido.",
+        "2) Registre um evento final (o que foi feito + evidências).",
+        "3) Atualize o status para 'Concluído'.",
+        "4) Se houver custo/fornecedor, anexe/registre as referências.",
+      ].join("\n");
+    }
+
+    if (q.includes("prazo") || q.includes("sla") || q.includes("atras")) {
+      return [
+        `Status atual: ${STATUS_LABEL[s] || s}`,
+        `Farol atual: ${t.farol}`,
+        "Sugestão:",
+        "- Se estiver amarelo/vermelho, registre a próxima ação e ajuste o responsável agora.",
+      ].join("\n");
+    }
+
+    return [
+      "Resposta (modo local):",
+      "- Veja o histórico (botão de relógio) para entender a última ação registrada.",
+      "- Se ainda não houver próxima ação definida, registre um evento com o próximo passo e o prazo esperado.",
+    ].join("\n");
+  }
+
+  async function eliaResumirSelecionado() {
+    if (!ticketSelecionado) {
+      mostrarMensagem("warning", "Selecione um ticket na tabela primeiro.");
+      return;
+    }
+    const eventos = await getEventosSelecionadoSafe();
+    eliaSetResposta(gerarResumoLocal(ticketSelecionado, eventos));
+  }
+
+  async function eliaPerguntarSelecionado() {
+    if (!ticketSelecionado) {
+      mostrarMensagem("warning", "Selecione um ticket na tabela primeiro.");
+      return;
+    }
+    const pergunta = ($("elia-pergunta-ticket")?.value || "").trim();
+    const eventos = await getEventosSelecionadoSafe();
+    eliaSetResposta(responderPerguntaLocal(ticketSelecionado, eventos, pergunta));
+  }
+
+  // --------------------
+  // Resumo geral
+  // --------------------
+  async function carregarResumoGeral() {
+    if (!accessToken) return;
+    try {
+      const dados = await apiFetch("/reports/summary", { auth: true });
+      const by = dados.by_status || {};
+      $("resumo-total") && ($("resumo-total").textContent = dados.total ?? 0);
+      $("resumo-aberto") && ($("resumo-aberto").textContent = by.aberto ?? 0);
+      $("resumo-em_atendimento") && ($("resumo-em_atendimento").textContent = by.em_atendimento ?? 0);
+      $("resumo-aguardando") && ($("resumo-aguardando").textContent = by.aguardando ?? 0);
+      $("resumo-concluido") && ($("resumo-concluido").textContent = by.concluido ?? 0);
+      $("resumo-cancelado") && ($("resumo-cancelado").textContent = by.cancelado ?? 0);
+    } catch (err) {
+      console.warn("carregarResumoGeral:", err);
+    }
+  }
+
+  // --------------------
+  // Dashboard
+  // --------------------
+  function filtrarTicketsPorPeriodoDashboard(tickets) {
+    const iniStr = $("dash-data-ini")?.value || "";
+    const fimStr = $("dash-data-fim")?.value || "";
+    if (!iniStr && !fimStr) return tickets;
+
+    const ini = iniStr ? new Date(iniStr + "T00:00:00") : null;
+    const fim = fimStr ? new Date(fimStr + "T23:59:59") : null;
+
+    return (tickets || []).filter((t) => {
+      const d = parseDateAny(t.data_abertura);
+      if (!d) return false;
+      if (ini && d < ini) return false;
+      if (fim && d > fim) return false;
+      return true;
+    });
+  }
+
+  function criarChart(ctx, labels, values, chartRef) {
+    if (!window.Chart || !ctx) return null;
+    if (chartRef) chartRef.destroy();
+    return new Chart(ctx, {
+      type: "bar",
+      data: { labels, datasets: [{ data: values, borderWidth: 1 }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+    });
+  }
+
+  async function carregarDashboard() {
+    if (!accessToken) return;
+
+    try {
+      let tickets = await apiFetch("/tickets", { auth: true });
+      tickets = Array.isArray(tickets) ? tickets : [];
+      tickets = filtrarTicketsPorPeriodoDashboard(tickets);
+
+      const byStatus = tickets.reduce((acc, t) => {
+        const s = normalizeStatus(t.status);
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+      }, {});
+
+      $("dash-resumo-total") && ($("dash-resumo-total").textContent = tickets.length);
+      $("dash-resumo-aberto") && ($("dash-resumo-aberto").textContent = byStatus.aberto || 0);
+      $("dash-resumo-em_atendimento") && ($("dash-resumo-em_atendimento").textContent = byStatus.em_atendimento || 0);
+      $("dash-resumo-aguardando") && ($("dash-resumo-aguardando").textContent = byStatus.aguardando || 0);
+      $("dash-resumo-concluido") && ($("dash-resumo-concluido").textContent = byStatus.concluido || 0);
+
+      chartStatus = criarChart(
+        document.getElementById("chart-status")?.getContext("2d"),
+        Object.keys(byStatus).map((s) => STATUS_LABEL[s] || s),
+        Object.values(byStatus),
+        chartStatus
+      );
+
+      const bySetor = tickets.reduce((acc, t) => {
+        const s = t.setor || "sem_setor";
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+      }, {});
+      chartSetor = criarChart(
+        document.getElementById("chart-setor")?.getContext("2d"),
+        Object.keys(bySetor),
+        Object.values(bySetor),
+        chartSetor
+      );
+
+      const byResp = tickets.reduce((acc, t) => {
+        const r = t.responsavel_email || "sem_responsavel";
+        acc[r] = (acc[r] || 0) + 1;
+        return acc;
+      }, {});
+      chartResponsavel = criarChart(
+        document.getElementById("chart-responsavel")?.getContext("2d"),
+        Object.keys(byResp),
+        Object.values(byResp),
+        chartResponsavel
+      );
+    } catch (err) {
+      console.error("carregarDashboard:", err);
+      mostrarMensagem("danger", "Erro ao carregar dashboard.");
+    }
+  }
+
+  // --------------------
+  // Export CSV + Print
+  // --------------------
+  function downloadText(filename, content) {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function csvEscape(v) {
+    const s = String(v ?? "");
+    if (s.includes('"') || s.includes(",") || s.includes("\n")) return `"${s.replaceAll('"', '""')}"`;
+    return s;
+  }
+
+  function exportarCSV() {
+    if (!ticketsCache.length) return mostrarMensagem("warning", "Não há tickets para exportar.");
+
+    const cols = [
+      ["id", "ID"],
+      ["numero_protocolo", "Protocolo"],
+      ["titulo", "Título"],
+      ["empresa", "Empresa"],
+      ["setor", "Setor"],
+      ["categoria_nome", "Categoria"],
+      ["prioridade", "Prioridade"],
+      ["status", "Status"],
+      ["farol", "Farol"],
+      ["solicitante_email", "Solicitante"],
+      ["responsavel_email", "Responsável"],
+      ["data_abertura", "Abertura"],
+    ];
+
+    const header = cols.map((c) => csvEscape(c[1])).join(",");
+    const rows = ticketsCache.map((t) =>
+      cols
+        .map(([k]) => {
+          if (k === "status") return csvEscape(STATUS_LABEL[normalizeStatus(t.status)] || t.status);
+          if (k === "prioridade") return csvEscape(PRIORIDADE_LABEL[normalizePrioridade(t.prioridade)] || t.prioridade);
+          if (k === "data_abertura") return csvEscape(formatDateTime(t.data_abertura));
+          return csvEscape(t?.[k]);
+        })
+        .join(",")
+    );
+
+    const csv = [header, ...rows].join("\n");
+    downloadText(`elitedesk_tickets_${new Date().toISOString().slice(0, 10)}.csv`, csv);
+    mostrarMensagem("success", "CSV gerado.");
+  }
+
+  function openPrintWindow(title, bodyHtml) {
+    const w = window.open("", "_blank", "width=1100,height=800");
+    if (!w) return mostrarMensagem("warning", "Pop-up bloqueado. Permita pop-ups para imprimir.");
+
+    w.document.open();
+    w.document.write(`
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(title)}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 16px; }
+            h1 { font-size: 18px; margin: 0 0 12px; }
+            .meta { color: #555; font-size: 12px; margin-bottom: 12px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 6px; vertical-align: top; }
+            th { background: #f3f3f3; text-align: left; }
+            .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 16px; }
+            .card { border: 1px solid #ddd; padding: 10px; border-radius: 8px; }
+            .card strong { font-size: 18px; display: block; }
+            img { max-width: 100%; }
+          </style>
+        </head>
+        <body>
+          ${bodyHtml}
+          <script>window.onload = () => window.print();</script>
+        </body>
+      </html>
+    `);
+    w.document.close();
+  }
+
+  function imprimirListaTickets() {
+    if (!ticketsCache.length) return mostrarMensagem("warning", "Não há tickets para imprimir.");
+
+    const rows = ticketsCache
+      .map((t) => {
+        const s = STATUS_LABEL[normalizeStatus(t.status)] || t.status;
+        const p = PRIORIDADE_LABEL[normalizePrioridade(t.prioridade)] || t.prioridade;
+        return `
+          <tr>
+            <td>${escapeHtml(t.id)}</td>
+            <td>${escapeHtml(t.numero_protocolo || "")}</td>
+            <td>${escapeHtml(t.titulo || "")}</td>
+            <td>${escapeHtml(t.setor || "")}</td>
+            <td>${escapeHtml(p || "")}</td>
+            <td>${escapeHtml(t.solicitante_email || "")}</td>
+            <td>${escapeHtml(t.responsavel_email || "")}</td>
+            <td>${escapeHtml(t.farol || "")}</td>
+            <td>${escapeHtml(s || "")}</td>
+            <td>${escapeHtml(formatDateTime(t.data_abertura))}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    openPrintWindow(
+      "EliteDesk — Lista de Tickets",
+      `
+        <h1>EliteDesk — Lista de Tickets</h1>
+        <div class="meta">Gerado em ${escapeHtml(new Date().toLocaleString())}</div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Protocolo</th><th>Título</th><th>Setor</th><th>Prioridade</th>
+              <th>Solicitante</th><th>Responsável</th><th>Farol</th><th>Status</th><th>Abertura</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `
+    );
+  }
+
+  function imprimirDashboard() {
+    const ini = $("dash-data-ini")?.value || "—";
+    const fim = $("dash-data-fim")?.value || "—";
+
+    const total = $("dash-resumo-total")?.textContent || "0";
+    const aberto = $("dash-resumo-aberto")?.textContent || "0";
+    const emAt = $("dash-resumo-em_atendimento")?.textContent || "0";
+    const aguard = $("dash-resumo-aguardando")?.textContent || "0";
+    const concl = $("dash-resumo-concluido")?.textContent || "0";
+
+    const imgStatus = document.getElementById("chart-status")?.toDataURL?.() || "";
+    const imgSetor = document.getElementById("chart-setor")?.toDataURL?.() || "";
+    const imgResp = document.getElementById("chart-responsavel")?.toDataURL?.() || "";
+
+    openPrintWindow(
+      "EliteDesk — Dashboard",
+      `
+        <h1>EliteDesk — Dashboard</h1>
+        <div class="meta">Gerado em ${escapeHtml(new Date().toLocaleString())} — Período: ${escapeHtml(ini)} até ${escapeHtml(fim)}</div>
+
+        <div class="grid">
+          <div class="card"><span>Total</span><strong>${escapeHtml(total)}</strong></div>
+          <div class="card"><span>Abertos</span><strong>${escapeHtml(aberto)}</strong></div>
+          <div class="card"><span>Em atendimento</span><strong>${escapeHtml(emAt)}</strong></div>
+          <div class="card"><span>Aguardando</span><strong>${escapeHtml(aguard)}</strong></div>
+        </div>
+
+        <div class="grid">
+          <div class="card"><span>Concluídos</span><strong>${escapeHtml(concl)}</strong></div>
+        </div>
+
+        ${imgStatus ? `<h2>Status</h2><img src="${imgStatus}" />` : ""}
+        ${imgSetor ? `<h2>Setor</h2><img src="${imgSetor}" />` : ""}
+        ${imgResp ? `<h2>Responsável</h2><img src="${imgResp}" />` : ""}
+      `
+    );
+  }
+
+  // --------------------
+  // Anotações (localStorage)
+  // --------------------
+  function loadNotas() {
+    try {
+      const raw = localStorage.getItem(NOTES_LS_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveNotas(notas) {
+    localStorage.setItem(NOTES_LS_KEY, JSON.stringify(notas || []));
+  }
+
+  function renderNotas() {
+    const lista = $("lista-notas");
+    if (!lista) return;
+
+    const notas = loadNotas();
+    if (!notas.length) {
+      lista.innerHTML = `<div class="list-group-item small text-muted">Nenhuma anotação cadastrada.</div>`;
+      return;
+    }
+
+    // ordena por prazo (se tiver) e depois por criado
+    const sorted = notas.slice().sort((a, b) => {
+      const ap = a.prazo || "";
+      const bp = b.prazo || "";
+      if (ap && bp && ap !== bp) return ap.localeCompare(bp);
+      if (ap && !bp) return -1;
+      if (!ap && bp) return 1;
+      return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+    });
+
+    lista.innerHTML = sorted
+      .map((n) => {
+        const prazoTxt = n.prazo ? `<div class="small text-muted mt-1"><i class="bi bi-calendar3 me-1"></i>${escapeHtml(n.prazo)}</div>` : "";
+        const catTxt = n.categoria ? `<span class="badge bg-light text-dark border">${escapeHtml(n.categoria)}</span>` : "";
+        return `
+          <div class="list-group-item" data-nota-id="${escapeHtml(n.id)}">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <div class="fw-semibold">${escapeHtml(n.titulo || "(Sem título)")}</div>
+                <div class="small" style="white-space: pre-wrap;">${escapeHtml(n.descricao || "")}</div>
+                <div class="mt-1">${catTxt}</div>
+                ${prazoTxt}
+              </div>
+              <button class="btn btn-outline-danger btn-sm" data-action="nota-excluir" title="Excluir">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  function addNota() {
+    const titulo = ($("nota-titulo")?.value || "").trim();
+    const descricao = ($("nota-descricao")?.value || "").trim();
+    const categoria = ($("nota-categoria")?.value || "").trim();
+    const prazo = ($("nota-prazo")?.value || "").trim();
+
+    if (!titulo && !descricao) {
+      mostrarMensagem("warning", "Preencha Título ou Descrição para salvar a anotação.");
+      return;
+    }
+
+    const notas = loadNotas();
+    notas.push({
+      id: String(Date.now()),
+      titulo,
+      descricao,
+      categoria,
+      prazo,
+      created_at: new Date().toISOString(),
+    });
+    saveNotas(notas);
+
+    $("nota-titulo") && ($("nota-titulo").value = "");
+    $("nota-descricao") && ($("nota-descricao").value = "");
+    $("nota-categoria") && ($("nota-categoria").value = "");
+    $("nota-prazo") && ($("nota-prazo").value = "");
+
+    renderNotas();
+    mostrarMensagem("success", "Anotação adicionada.");
+  }
+
+  function limparNotas() {
+    if (!confirm("Tem certeza que deseja apagar TODAS as anotações?")) return;
+    saveNotas([]);
+    renderNotas();
+    mostrarMensagem("success", "Anotações apagadas.");
+  }
+
+  // --------------------
+  // Delegation da tabela
+  // --------------------
+  function bindTabelaTicketsDelegation() {
+    const tbody = document.querySelector("#tabela-tickets tbody");
+    if (!tbody) return;
+
+    tbody.addEventListener("click", async (e) => {
+      const tr = e.target.closest("tr[data-id]");
+      if (!tr) return;
+
+      const id = tr.dataset.id;
+      const ticket = ticketsById.get(String(id));
+      if (ticket) selecionarTicketLista(ticket, tr);
+
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+
+      e.preventDefault();
+
+      const action = btn.getAttribute("data-action");
+
+      if (action === "salvar-status") {
+        const sel = tbody.querySelector(`select.select-status[data-id="${id}"]`);
+        return atualizarStatus(id, sel?.value);
+      }
+      if (action === "assumir") return assumirTicket(id);
+      if (action === "ver-ticket") return abrirModalTicket(id);
+      if (action === "ver-historico") return abrirModalHistorico(id);
+      if (action === "evento-rapido") {
+        const box = $("evento-detalhe");
+        box?.scrollIntoView({ behavior: "smooth", block: "center" });
+        box?.focus();
+        return;
+      }
+    });
+  }
+
+  // --------------------
+  // Bind UI
+  // --------------------
+  function bindUI() {
+    bindTabs();
+    bindTabelaTicketsDelegation();
+    bindEliaMelhorarTexto();
+
+    // preview
+    $("ticket-form")?.addEventListener("input", atualizarPreview);
+    $("empresa")?.addEventListener("change", atualizarPreview);
+    $("setor")?.addEventListener("change", async () => {
+      await carregarCategorias($("setor")?.value || "");
+      atualizarPreview();
+    });
+    $("categoria")?.addEventListener("change", atualizarPreview);
+    $("natureza")?.addEventListener("change", atualizarPreview);
+    $("canal")?.addEventListener("change", atualizarPreview);
+    $("transportadora")?.addEventListener("change", atualizarPreview);
+    $("prioridade")?.addEventListener("change", atualizarPreview);
+
+    // filtros lista
+    $("btn-aplicar-filtros")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      carregarTickets();
+    });
+    $("btn-limpar-filtros")?.addEventListener("click", () => {
+      [
+        "filtro-status",
+        "filtro-setor",
+        "filtro-prioridade",
+        "filtro-protocolo",
+        "filtro-data-ini",
+        "filtro-data-fim",
+        "filtro-prazo-ini",
+        "filtro-prazo-fim",
+        "filtro-solicitante",
+        "filtro-responsavel",
+      ].forEach((id) => $(id) && ($(id).value = ""));
+      mostrarMeus = false;
+      carregarTickets();
+    });
+
+    $("btn-meus")?.addEventListener("click", () => {
+      if (!accessToken) return mostrarMensagem("danger", "Faça login para ver seus tickets.");
+      mostrarMeus = true;
+      carregarTickets();
+    });
+    $("btn-todos")?.addEventListener("click", () => {
+      mostrarMeus = false;
+      carregarTickets();
+    });
+
+    $("btn-recarregar")?.addEventListener("click", async () => {
+      await carregarTickets();
+      await carregarResumoGeral();
+      if (!$("view-dashboard")?.classList.contains("d-none")) await carregarDashboard();
+    });
+
+    // export/print lista
+    $("btn-list-export")?.addEventListener("click", exportarCSV);
+    $("btn-list-print")?.addEventListener("click", imprimirListaTickets);
+
+    // dashboard
+    $("btn-dash-aplicar")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      carregarDashboard();
+    });
+    $("btn-dash-limpar")?.addEventListener("click", () => {
+      $("dash-data-ini") && ($("dash-data-ini").value = "");
+      $("dash-data-fim") && ($("dash-data-fim").value = "");
+      carregarDashboard();
+    });
+    $("btn-dash-print")?.addEventListener("click", imprimirDashboard);
+
+    // ELIA lista
+    $("elia-resumir-ticket")?.addEventListener("click", eliaResumirSelecionado);
+    $("elia-perguntar-ticket")?.addEventListener("click", eliaPerguntarSelecionado);
+
+    // registrar evento (lista)
+    $("btn-registrar-evento")?.addEventListener("click", registrarEventoNoSelecionado);
+
+    // notas
+    $("btn-nota-add")?.addEventListener("click", addNota);
+    $("btn-nota-limpar-tudo")?.addEventListener("click", limparNotas);
+    $("lista-notas")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      const item = e.target.closest("[data-nota-id]");
+      if (!item) return;
+      const id = item.getAttribute("data-nota-id");
+      if (!id) return;
+
+      if (btn.getAttribute("data-action") === "nota-excluir") {
+        const notas = loadNotas().filter((n) => n.id !== id);
+        saveNotas(notas);
+        renderNotas();
+        mostrarMensagem("success", "Anotação removida.");
+      }
+    });
+
+    // login
+    $("login-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = $("login-email")?.value || "";
+      const senha = $("login-senha")?.value || "";
+      try {
+        await login(email, senha);
+        mostrarMensagem("success", "Login realizado com sucesso.");
+        await carregarResumoGeral();
+        await carregarTickets();
+      } catch (err) {
+        console.error("login:", err);
+        mostrarMensagem("danger", err.message || "Falha de login.");
+      }
+    });
+
+    $("btn-logout")?.addEventListener("click", () => {
+      logout();
+      mostrarMensagem("success", "Logout realizado.");
+    });
+
+    // criar ticket
+    $("ticket-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!accessToken) return mostrarMensagem("danger", "Faça login para abrir tickets.");
+
+      const payload = {
+        empresa: $("empresa")?.value || "",
+        setor: $("setor")?.value || "",
+        categoria_nome: $("categoria")?.value || null,
+        natureza: $("natureza")?.value || null,
+        canal: $("canal")?.value || null,
+        transportadora: $("transportadora")?.value || null,
+        titulo: $("titulo")?.value || "",
+        descricao: $("descricao")?.value || "",
+        prioridade: normalizePrioridade($("prioridade")?.value || "baixa"),
+        prazo_ideal: $("prazo_ideal")?.value || null,
+        prazo_limite: $("prazo_limite")?.value || null,
+        contato_nome: $("contato_nome")?.value || "",
+        contato_email: $("contato_email")?.value || "",
+        contato_telefone: $("contato_telefone")?.value || "",
+      };
+
+      try {
+        await apiFetch("/tickets", { method: "POST", auth: true, json: true, body: payload });
+        mostrarMensagem("success", "Ticket criado!");
+        $("ticket-form")?.reset();
+        atualizarPreview();
+        await carregarResumoGeral();
+      } catch (err) {
+        console.error("criar_ticket:", err);
+        mostrarMensagem("danger", err?.data?.detail || "Erro ao criar ticket.");
+      }
+    });
+  }
+
+  // --------------------
+  // Boot
+  // --------------------
+  document.addEventListener("DOMContentLoaded", async () => {
+    ensureGlobalMessageArea();
+    ensureModals();
+    ensurePreviewExtras();
+
+    bindUI();
+    ativarTab("tab-abertura", "view-abertura");
+
+    await carregarReference();
+    preencherCombosDeReference();
+
+    await carregarUsuarioAtual();
+    atualizarPreview();
+    renderNotas();
+
+    if (accessToken) {
+      await carregarResumoGeral();
     }
   });
-}
-
-// IMPRIMIR / PDF DA LISTA – SOMENTE A TABELA
-if (btnListPrint) {
-  btnListPrint.addEventListener("click", () => {
-    printElementById("tabela-tickets", "Lista de tickets");
-  });
-}
-
-// IMPRIMIR / PDF DO DASHBOARD
-if (btnDashPrint) {
-  btnDashPrint.addEventListener("click", () => {
-    printElementById("view-dashboard", "Dashboard de tickets");
-  });
-}
-
-// INICIALIZAÇÃO
-carregarEmpresas();
-carregarSetores();
-carregarResumoGeral();
-carregarTickets();
-atualizarPreview();
+})();

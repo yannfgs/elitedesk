@@ -5,6 +5,8 @@ from typing import Any, Optional
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 
+from passlib.exc import UnknownHashError
+
 # Em produção, gere uma chave forte e guarde em variável de ambiente
 SECRET_KEY = "super-secret-elitedesk-key"  # troque depois
 ALGORITHM = "HS256"
@@ -15,7 +17,10 @@ pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 def verificar_senha(senha_plana: str, senha_hash: str) -> bool:
-    return pwd_context.verify(senha_plana, senha_hash)
+    try:
+        return pwd_context.verify(senha_plana, senha_hash)
+    except UnknownHashError:
+        return False
 
 
 def gerar_hash_senha(senha_plana: str) -> str:

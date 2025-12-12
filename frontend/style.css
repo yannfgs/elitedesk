@@ -15,19 +15,73 @@ body {
   background-color: var(--ea-bg);
 }
 
-/* Cabeçalho */
+/* HEADER --------------------------------------------------- */
 
-.header-brand {
+.ea-header {
+  background: linear-gradient(90deg, #0f172a, #1d4ed8);
+  color: #f9fafb;
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ea-header-left {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 
-.header-brand img {
+.ea-header-left img {
   height: 32px;
 }
 
-/* Cards */
+.ea-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ea-user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+
+.ea-user-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ea-user-role {
+  font-size: 0.75rem;
+  color: #cbd5f5;
+}
+
+.ea-bell-btn {
+  color: #e5e7eb;
+  font-size: 1.25rem;
+}
+
+/* CALENDÁRIO ---------------------------------------------- */
+
+.calendario-grid {
+  min-height: 220px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+/* LISTA DE NOTAS ------------------------------------------ */
+
+.lista-notas-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+/* Cards --------------------------------------------------- */
 
 .card {
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
@@ -36,7 +90,7 @@ body {
   background-color: var(--ea-card-bg);
 }
 
-/* Tabs */
+/* Tabs ---------------------------------------------------- */
 
 .nav-tabs .nav-link {
   border-radius: 999px 999px 0 0;
@@ -50,10 +104,11 @@ body {
   font-weight: 600;
 }
 
-/* Faróis e status */
+/* Faróis -------------------------------------------------- */
 
 .badge-farol-verde {
   background-color: var(--ea-green);
+  color: #fff;
 }
 
 .badge-farol-amarelo {
@@ -63,12 +118,24 @@ body {
 
 .badge-farol-vermelho {
   background-color: var(--ea-red);
+  color: #fff;
 }
 
+/* Status -------------------------------------------------- */
+/* (fix: texto nunca fica “branco invisível” mesmo se alguém usar .badge junto) */
 .badge-status {
   border-radius: 999px;
   padding: 0.15rem 0.55rem;
   font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+.badge-status.badge {
+  color: inherit !important;
 }
 
 .status-aberto {
@@ -96,12 +163,25 @@ body {
   color: #374151;
 }
 
-/* Prioridade */
+/* quando o FAROL estiver vermelho e o ticket ainda não estiver concluído/cancelado */
+.status-atrasado {
+  background-color: #fecaca;
+  color: #7f1d1d;
+}
+
+/* Prioridade ---------------------------------------------- */
 
 .badge-prioridade {
   border-radius: 999px;
   padding: 0.15rem 0.55rem;
   font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+.badge-prioridade.badge {
+  color: inherit !important;
 }
 
 .prio-baixa {
@@ -124,7 +204,7 @@ body {
   color: #ffffff;
 }
 
-/* Tabela */
+/* Tabela -------------------------------------------------- */
 
 .table-striped tbody tr:nth-of-type(odd) {
   background-color: #f9fafb;
@@ -139,7 +219,7 @@ body {
 
 .table.table-sm th,
 .table.table-sm td {
-  padding: 0.55rem 0.9rem;
+  padding: 0.4rem 0.9rem;
   vertical-align: middle;
 }
 
@@ -148,14 +228,12 @@ body {
   color: #111827;
 }
 
-/* Linha selecionada */
-
+/* Linha selecionada (azul claro) */
 .table tbody tr.table-active {
   background-color: #e0f2fe !important;
 }
 
 /* Título com texto longo */
-
 .table-row-compact td:nth-child(3) {
   max-width: 260px;
   white-space: nowrap;
@@ -163,7 +241,12 @@ body {
   text-overflow: ellipsis;
 }
 
-/* KPI cards (resumo) */
+/* ELIA resposta com quebra de linha */
+#elia-resposta-ticket {
+  white-space: pre-wrap;
+}
+
+/* KPI cards (resumo) -------------------------------------- */
 
 .ea-card-kpi {
   border-left: 4px solid var(--ea-blue);
@@ -181,7 +264,7 @@ body {
   letter-spacing: 0.05em;
 }
 
-/* Impressão: esconde controles e mantém conteúdo */
+/* Impressão ----------------------------------------------- */
 
 @media print {
   body {

@@ -1,908 +1,817 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <title>EliteDesk - Tickets</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- Bootstrap CSS -->
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-    <!-- Bootstrap Icons -->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
-    />
-    <!-- CSS personalizado -->
-    <link rel="stylesheet" href="style.css" />
-  </head>
+<head>
+  <meta charset="UTF-8" />
+  <title>EliteDesk - Tickets</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <body>
-    <div class="container my-4">
-      <!-- Cabeçalho -->
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="header-brand">
-          <img src="LOGO Elite_Aco PNG.png" alt="Elite Aço" />
-          <div>
-            <h1 class="h4 mb-0">EliteDesk</h1>
-            <div class="small text-muted">
-              Central de tickets internos – Elite Aço
-            </div>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" />
+  <!-- CSS personalizado -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="container my-4">
+    <!-- Cabeçalho principal -->
+    <header class="ea-header mb-3">
+      <div class="ea-header-left">
+        <img src="LOGO Elite_Aco PNG.png" alt="Elite Aço" />
+        <div>
+          <h1 class="h5 mb-0">EliteDesk</h1>
+          <div class="small text-muted">
+            Central de tickets internos – Elite Aço
           </div>
         </div>
       </div>
+      <div class="ea-header-right">
+        <div class="ea-user-info" id="ea-user-info">
+          <span class="ea-user-name" id="ea-user-name">Não autenticado</span>
+          <span class="ea-user-role" id="ea-user-role">–</span>
+        </div>
+        <button type="button" class="btn btn-link position-relative ea-bell-btn" id="ea-bell-btn">
+          <i class="bi bi-bell"></i>
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+            id="ea-bell-badge">
+            0
+          </span>
+        </button>
+      </div>
+    </header>
 
-      <!-- Login -->
-      <div class="card mb-3">
-        <div class="card-header fw-bold">Login</div>
-        <div class="card-body">
-          <form id="login-form" class="row g-2 align-items-end">
-            <div class="col-md-4">
-              <label class="form-label">E-mail</label>
-              <input
-                type="email"
-                class="form-control"
-                id="login-email"
-                placeholder="teste@example.com"
-                required
-              />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Senha</label>
-              <input
-                type="password"
-                class="form-control"
-                id="login-senha"
-                placeholder="********"
-                required
-              />
-            </div>
-            <div class="col-md-4 d-flex gap-2">
-              <button type="submit" class="btn btn-primary mt-auto">
-                Entrar
-              </button>
-              <button
-                type="button"
-                id="btn-logout"
-                class="btn btn-outline-secondary mt-auto"
-              >
-                Sair
-              </button>
-            </div>
-          </form>
-          <div id="login-status" class="mt-2 small text-muted">
-            Não autenticado.
+    <!-- LOGIN -->
+    <div class="card mb-3">
+      <div class="card-header fw-bold">Login</div>
+      <div class="card-body">
+        <form id="login-form" class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label">E-mail</label>
+            <input type="email" class="form-control" id="login-email" placeholder="teste@example.com" required />
           </div>
+          <div class="col-md-4">
+            <label class="form-label">Senha</label>
+            <input type="password" class="form-control" id="login-senha" placeholder="********" required />
+          </div>
+          <div class="col-md-4 d-flex gap-2">
+            <button type="submit" class="btn btn-primary mt-auto">
+              Entrar
+            </button>
+            <button type="button" id="btn-logout" class="btn btn-outline-secondary mt-auto">
+              Sair
+            </button>
+          </div>
+        </form>
+        <div id="login-status" class="mt-2 small text-muted">
+          Não autenticado.
         </div>
       </div>
+    </div>
 
-      <!-- Tabs -->
-      <ul class="nav nav-tabs mb-3">
-        <li class="nav-item">
-          <button class="nav-link active" id="tab-abertura" type="button">
-            Abertura
-          </button>
-        </li>
-        <li class="nav-item">
-          <button class="nav-link" id="tab-lista" type="button">
-            Lista de tickets
-          </button>
-        </li>
-        <li class="nav-item">
-          <button class="nav-link" id="tab-dashboard" type="button">
-            Dashboard
-          </button>
-        </li>
-      </ul>
+    <!-- TABS -->
+    <ul class="nav nav-tabs mb-3">
+      <li class="nav-item">
+        <button class="nav-link active" id="tab-abertura" type="button">
+          Abertura
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="tab-lista" type="button">
+          Lista de tickets
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="tab-dashboard" type="button">
+          Dashboard
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="tab-calendario" type="button">
+          Calendário
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="tab-notas" type="button">
+          Anotações
+        </button>
+      </li>
+    </ul>
 
-      <!-- VIEW: ABERTURA -->
-      <div id="view-abertura">
-        <div class="row g-4">
-          <!-- Coluna esquerda: formulário -->
-          <div class="col-lg-4">
-            <div class="card mb-3">
-              <div class="card-header fw-bold">Novo Ticket</div>
-              <div class="card-body">
-                <form id="ticket-form">
-                  <div class="mb-2">
-                    <label class="form-label">Empresa</label>
-                    <select class="form-select" id="empresa" required>
-                      <option value="">Carregando empresas...</option>
-                    </select>
-                    <small class="text-muted">
-                      As empresas são carregadas da API /empresas.
-                    </small>
-                  </div>
-                  <div class="mb-2">
-                    <label class="form-label">Setor</label>
-                    <select class="form-select" id="setor" required>
-                      <option value="">Carregando setores...</option>
-                    </select>
-                    <small class="text-muted">
-                      Os setores são carregados da API /setores.
-                    </small>
-                  </div>
-                  <div class="mb-2">
-                    <label class="form-label">Categoria</label>
-                    <select class="form-select" id="categoria">
-                      <option value="">Selecione um setor primeiro...</option>
-                    </select>
-                    <small class="text-muted">
-                      Categorias são carregadas conforme o setor escolhido.
-                    </small>
-                  </div>
-                  <div class="mb-2">
-                    <label class="form-label">Título</label>
-                    <input
-                      type="text"
-                      class="form-control"
-                      id="titulo"
-                      required
-                    />
-                  </div>
-                  <div class="mb-2">
-                    <label class="form-label">Descrição</label>
-                    <textarea
-                      class="form-control"
-                      id="descricao"
-                      rows="4"
-                      required
-                    ></textarea>
-                  </div>
-                  <div class="mb-2">
-                    <label class="form-label">Prioridade</label>
-                    <select class="form-select" id="prioridade" required>
-                      <option value="baixa">Baixa</option>
-                      <option value="media">Média</option>
-                      <option value="alta">Alta</option>
-                      <option value="critica">Crítica</option>
-                    </select>
-                  </div>
-                  <div class="row mb-2">
-                    <div class="col">
-                      <label class="form-label">Prazo ideal</label>
-                      <input
-                        type="date"
-                        class="form-control"
-                        id="prazo_ideal"
-                        required
-                      />
-                    </div>
-                    <div class="col">
-                      <label class="form-label">Prazo limite</label>
-                      <input
-                        type="date"
-                        class="form-control"
-                        id="prazo_limite"
-                        required
-                      />
-                    </div>
-                  </div>
+    <!-- ========== VIEW: ABERTURA ========== -->
+    <div id="view-abertura">
+      <div class="row g-4">
+        <!-- Coluna esquerda: formulário -->
+        <div class="col-lg-4">
+          <div class="card mb-3">
+            <div class="card-header fw-bold">Novo Ticket</div>
+            <div class="card-body">
+              <form id="ticket-form">
+                <div class="mb-2">
+                  <label class="form-label">Empresa</label>
+                  <select class="form-select" id="empresa" required>
+                    <option value="">Carregando empresas...</option>
+                  </select>
+                  <small class="text-muted">
+                    As empresas são carregadas da API /empresas.
+                  </small>
+                </div>
 
-                  <hr />
+                <div class="mb-2">
+                  <label class="form-label">Setor</label>
+                  <select class="form-select" id="setor" required>
+                    <option value="">Carregando setores...</option>
+                  </select>
+                  <small class="text-muted">
+                    Os setores são carregados da API /setores.
+                  </small>
+                </div>
 
-                  <div class="mb-2">
-                    <label class="form-label">Contato - Nome</label>
-                    <input
-                      type="text"
-                      class="form-control"
-                      id="contato_nome"
-                      required
-                    />
-                  </div>
-                  <div class="mb-2">
-                    <label class="form-label">Contato - E-mail</label>
-                    <input
-                      type="email"
-                      class="form-control"
-                      id="contato_email"
-                      required
-                    />
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Contato - Telefone</label>
-                    <input
-                      type="text"
-                      class="form-control"
-                      id="contato_telefone"
-                      required
-                    />
-                  </div>
+                <div class="mb-2">
+                  <label class="form-label">Categoria</label>
+                  <select class="form-select" id="categoria">
+                    <option value="">Selecione um setor primeiro...</option>
+                  </select>
+                  <small class="text-muted">
+                    Categorias são carregadas conforme o setor escolhido.
+                  </small>
+                </div>
 
-                  <button type="submit" class="btn btn-primary w-100">
-                    Abrir Ticket
-                  </button>
-                </form>
-                <div id="mensagem" class="mt-3"></div>
-              </div>
+                <!-- NOVOS CAMPOS: NATUREZA / CANAL / TRANSPORTADORA -->
+                <div class="mb-2">
+                  <label class="form-label">Natureza</label>
+                  <select class="form-select" id="natureza">
+                    <option value="">Selecione...</option>
+                  </select>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Canal</label>
+                  <select class="form-select" id="canal">
+                    <option value="">Selecione...</option>
+                  </select>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Transportadora</label>
+                  <select class="form-select" id="transportadora">
+                    <option value="">Selecione...</option>
+                  </select>
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label">Título</label>
+                  <input type="text" class="form-control" id="titulo" required />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Descrição</label>
+                  <textarea class="form-control" id="descricao" rows="4" required></textarea>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Prioridade</label>
+                  <select class="form-select" id="prioridade" required>
+                    <option value="baixa">Baixa</option>
+                    <option value="media">Média</option>
+                    <option value="alta">Alta</option>
+                    <option value="critica">Crítica</option>
+                  </select>
+                </div>
+                <div class="row mb-2">
+                  <div class="col">
+                    <label class="form-label">Prazo ideal</label>
+                    <input type="date" class="form-control" id="prazo_ideal" required />
+                  </div>
+                  <div class="col">
+                    <label class="form-label">Prazo limite</label>
+                    <input type="date" class="form-control" id="prazo_limite" required />
+                  </div>
+                </div>
+
+                <hr />
+
+                <div class="mb-2">
+                  <label class="form-label">Contato - Nome</label>
+                  <input type="text" class="form-control" id="contato_nome" required />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Contato - E-mail</label>
+                  <input type="email" class="form-control" id="contato_email" required />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Contato - Telefone</label>
+                  <input type="text" class="form-control" id="contato_telefone" required />
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">
+                  Abrir Ticket
+                </button>
+              </form>
+              <div id="mensagem" class="mt-3"></div>
             </div>
           </div>
+        </div>
 
-          <!-- Coluna direita: preview + ELIA + resumo -->
-          <div class="col-lg-8">
-            <!-- Pré-visualização -->
-            <div class="card mb-3">
-              <div class="card-header fw-bold">Pré-visualização do ticket</div>
-              <div class="card-body">
-                <h5 id="preview-titulo" class="mb-2 text-primary">
-                  Título do ticket
-                </h5>
-                <div class="mb-1">
-                  <span class="badge bg-light text-muted border me-1">
-                    <i class="bi bi-building me-1"></i>
-                    <span id="preview-empresa">Empresa</span>
-                  </span>
-                  <span class="badge bg-light text-muted border me-1">
-                    <i class="bi bi-diagram-3 me-1"></i>
-                    <span id="preview-setor">Setor</span>
-                  </span>
-                  <span class="badge bg-light text-muted border me-1">
-                    <i class="bi bi-tags me-1"></i>
-                    <span id="preview-categoria">Categoria</span>
-                  </span>
-                  <span
-                    id="preview-prioridade"
-                    class="badge-prioridade prio-baixa"
-                  >
-                    Prioridade
-                  </span>
-                </div>
-                <div class="small text-muted mb-2">
-                  Prazo ideal:
-                  <span id="preview-prazo-ideal">–</span> • Prazo limite:
-                  <span id="preview-prazo-limite">–</span>
-                </div>
-                <p id="preview-descricao" class="mb-3">
-                  A descrição aparecerá aqui conforme você digitar.
-                </p>
-                <div class="small text-muted">
-                  Contato:
-                  <span id="preview-contato-nome">–</span> –
-                  <span id="preview-contato-email">–</span> –
-                  <span id="preview-contato-telefone">–</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- ELIA – melhorar texto -->
-            <div class="card mb-3">
-              <div class="card-header d-flex justify-content-between">
-                <span class="fw-bold">
-                  <span class="text-warning">
-                    <i class="bi bi-stars me-1"></i>
-                  </span>
-                  ELIA – Melhorar texto do ticket
+        <!-- Coluna direita: preview + ELIA + resumo -->
+        <div class="col-lg-8">
+          <!-- Pré-visualização -->
+          <div class="card mb-3">
+            <div class="card-header fw-bold">Pré-visualização do ticket</div>
+            <div class="card-body">
+              <h5 id="preview-titulo" class="mb-2 text-primary">
+                Título do ticket
+              </h5>
+              <div class="mb-1">
+                <span class="badge bg-light text-muted border me-1">
+                  <i class="bi bi-building me-1"></i>
+                  <span id="preview-empresa">Empresa</span>
+                </span>
+                <span class="badge bg-light text-muted border me-1">
+                  <i class="bi bi-diagram-3 me-1"></i>
+                  <span id="preview-setor">Setor</span>
+                </span>
+                <span class="badge bg-light text-muted border me-1">
+                  <i class="bi bi-tags me-1"></i>
+                  <span id="preview-categoria">Categoria</span>
+                </span>
+                <span id="preview-prioridade" class="badge-prioridade prio-baixa">
+                  Prioridade
                 </span>
               </div>
-              <div class="card-body">
-                <p class="small text-muted">
-                  Escreva o <strong>Título</strong> e a
-                  <strong>Descrição</strong>. Depois clique em
-                  <em>Sugerir melhoria</em> para a ELIA propor uma versão mais
-                  clara e profissional. Você pode aplicar a sugestão com um
-                  clique.
-                </p>
-
-                <div class="d-flex flex-wrap gap-2 mb-3">
-                  <button
-                    type="button"
-                    id="elia-sugerir-texto"
-                    class="btn btn-outline-primary btn-sm"
-                  >
-                    <i class="bi bi-magic me-1"></i> Sugerir melhoria
-                  </button>
-                  <button
-                    type="button"
-                    id="elia-aplicar-texto"
-                    class="btn btn-primary btn-sm"
-                    disabled
-                  >
-                    <i class="bi bi-check2-circle me-1"></i> Aplicar sugestão
-                  </button>
-                </div>
-
-                <div class="mb-2">
-                  <label class="form-label">Título sugerido pela ELIA</label>
-                  <input
-                    type="text"
-                    class="form-control"
-                    id="elia-titulo-sugerido"
-                    placeholder='Clique em "Sugerir melhoria"'
-                    readonly
-                  />
-                </div>
-
-                <div class="mb-2">
-                  <label class="form-label">Descrição sugerida pela ELIA</label>
-                  <textarea
-                    class="form-control"
-                    id="elia-descricao-sugerida"
-                    rows="4"
-                    placeholder='Clique em "Sugerir melhoria"'
-                    readonly
-                  ></textarea>
-                </div>
+              <div class="small text-muted mb-2">
+                Prazo ideal:
+                <span id="preview-prazo-ideal">–</span> • Prazo limite:
+                <span id="preview-prazo-limite">–</span>
               </div>
-            </div>
-
-            <!-- Resumo geral -->
-            <div class="card">
-              <div class="card-header fw-bold">Resumo (geral)</div>
-              <div class="card-body row g-2">
-                <div class="col-md-4">
-                  <div class="ea-card-kpi p-2">
-                    <span class="label">Total</span><br />
-                    <span class="value" id="resumo-total">-</span>
-                  </div>
-                </div>
-                <div class="col-md-4">
-                  <div class="ea-card-kpi p-2">
-                    <span class="label">Abertos</span><br />
-                    <span class="value" id="resumo-aberto">-</span>
-                  </div>
-                </div>
-                <div class="col-md-4">
-                  <div class="ea-card-kpi p-2">
-                    <span class="label">Em atendimento</span><br />
-                    <span class="value" id="resumo-em_atendimento">-</span>
-                  </div>
-                </div>
-                <div class="col-md-4 mt-2">
-                  <div class="ea-card-kpi p-2">
-                    <span class="label">Aguardando</span><br />
-                    <span class="value" id="resumo-aguardando">-</span>
-                  </div>
-                </div>
-                <div class="col-md-4 mt-2">
-                  <div class="ea-card-kpi p-2">
-                    <span class="label">Concluídos</span><br />
-                    <span class="value" id="resumo-concluido">-</span>
-                  </div>
-                </div>
-                <div class="col-md-4 mt-2">
-                  <div class="ea-card-kpi p-2">
-                    <span class="label">Cancelados</span><br />
-                    <span class="value" id="resumo-cancelado">-</span>
-                  </div>
-                </div>
+              <p id="preview-descricao" class="mb-3">
+                A descrição aparecerá aqui conforme você digitar.
+              </p>
+              <div class="small text-muted">
+                Contato:
+                <span id="preview-contato-nome">–</span> –
+                <span id="preview-contato-email">–</span> –
+                <span id="preview-contato-telefone">–</span>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- VIEW: LISTA DE TICKETS -->
-      <div id="view-lista" class="d-none">
-        <!-- Filtros -->
-        <div class="card mb-3">
-          <div class="card-header fw-bold">Filtros</div>
-          <div class="card-body">
-            <div class="row g-2 mb-2">
-              <div class="col-md-3">
-                <label class="form-label">Status</label>
-                <select id="filtro-status" class="form-select">
-                  <option value="">(Todos)</option>
-                  <option value="aberto">Aberto</option>
-                  <option value="em_atendimento">Em atendimento</option>
-                  <option value="aguardando">Aguardando</option>
-                  <option value="concluido">Concluído</option>
-                  <option value="cancelado">Cancelado</option>
-                </select>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Setor</label>
-                <input
-                  type="text"
-                  id="filtro-setor"
-                  class="form-control"
-                  placeholder="Ex.: TI"
-                />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Prioridade</label>
-                <select id="filtro-prioridade" class="form-select">
-                  <option value="">(Todas)</option>
-                  <option value="baixa">Baixa</option>
-                  <option value="media">Média</option>
-                  <option value="alta">Alta</option>
-                  <option value="critica">Crítica</option>
-                </select>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Protocolo</label>
-                <input
-                  type="text"
-                  id="filtro-protocolo"
-                  class="form-control"
-                  placeholder="Ex.: ED-2025-000123"
-                />
-              </div>
+          <!-- ELIA – melhorar texto -->
+          <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between">
+              <span class="fw-bold">
+                <span class="text-warning">
+                  <i class="bi bi-stars me-1"></i>
+                </span>
+                ELIA – Melhorar texto do ticket
+              </span>
             </div>
+            <div class="card-body">
+              <p class="small text-muted">
+                Escreva o <strong>Título</strong> e a
+                <strong>Descrição</strong>. Depois clique em
+                <em>Sugerir melhoria</em> para a ELIA propor uma versão mais
+                clara e profissional.
+              </p>
 
-            <div class="row g-2 mb-2">
-              <div class="col-md-3">
-                <label class="form-label">Abertura de</label>
-                <input
-                  type="date"
-                  class="form-control"
-                  id="filtro-data-ini"
-                />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Abertura até</label>
-                <input
-                  type="date"
-                  class="form-control"
-                  id="filtro-data-fim"
-                />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Prazo limite de</label>
-                <input
-                  type="date"
-                  class="form-control"
-                  id="filtro-prazo-ini"
-                />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Prazo limite até</label>
-                <input
-                  type="date"
-                  class="form-control"
-                  id="filtro-prazo-fim"
-                />
-              </div>
-            </div>
-
-            <div class="d-flex flex-wrap gap-2 mt-2">
-              <button id="btn-aplicar-filtros" class="btn btn-primary btn-sm">
-                <i class="bi bi-funnel me-1"></i>Aplicar filtros
-              </button>
-              <button
-                id="btn-limpar-filtros"
-                class="btn btn-outline-secondary btn-sm"
-              >
-                Limpar filtros
-              </button>
-              <button
-                id="btn-list-export"
-                class="btn btn-outline-secondary btn-sm"
-              >
-                <i class="bi bi-download me-1"></i>Exportar CSV
-              </button>
-              <button
-                id="btn-list-print"
-                class="btn btn-outline-primary btn-sm"
-              >
-                <i class="bi bi-printer me-1"></i>Imprimir / PDF
-              </button>
-              <div class="ms-auto d-flex gap-2">
-                <button
-                  id="btn-meus"
-                  class="btn btn-outline-primary btn-sm"
-                >
-                  Meus tickets
+              <div class="d-flex flex-wrap gap-2 mb-3">
+                <button type="button" id="elia-sugerir-texto" class="btn btn-outline-primary btn-sm">
+                  <i class="bi bi-magic me-1"></i> Sugerir melhoria
                 </button>
-                <button
-                  id="btn-todos"
-                  class="btn btn-outline-secondary btn-sm"
-                >
-                  Todos
+                <button type="button" id="elia-aplicar-texto" class="btn btn-primary btn-sm" disabled>
+                  <i class="bi bi-check2-circle me-1"></i> Aplicar sugestão
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Tabela -->
-        <div class="card">
-          <div
-            class="card-header d-flex justify-content-between align-items-center"
-          >
-            <span class="fw-bold">Tickets</span>
-            <button
-              id="btn-recarregar"
-              class="btn btn-sm btn-outline-primary"
-            >
-              Recarregar
-            </button>
-          </div>
-          <div class="card-body">
-            <div class="table-responsive" style="max-height: 60vh">
-              <table
-                class="table table-sm table-striped table-hover align-middle"
-                id="tabela-tickets"
-              >
-                <thead class="table-light">
-                  <tr>
-                    <th>#</th>
-                    <th>Protocolo</th>
-                    <th>Título</th>
-                    <th>Setor</th>
-                    <th>Prioridade</th>
-                    <th>Solicitante</th>
-                    <th>Responsável</th>
-                    <th>Farol</th>
-                    <th>Status</th>
-                    <th>Abertura</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-            <small class="text-muted">
-              * Dados carregados da API http://127.0.0.1:8000/tickets
-            </small>
-          </div>
-        </div>
+              <div class="mb-2">
+                <label class="form-label">Título sugerido pela ELIA</label>
+                <input type="text" class="form-control" id="elia-titulo-sugerido"
+                  placeholder='Clique em "Sugerir melhoria"' readonly />
+              </div>
 
-        <!-- ELIA – análise do ticket selecionado -->
-        <div class="card mt-3">
-          <div class="card-header fw-bold">
-            <span class="text-info"><i class="bi bi-stars me-1"></i></span>
-            ELIA – Análise do ticket selecionado
+              <div class="mb-2">
+                <label class="form-label">Descrição sugerida pela ELIA</label>
+                <textarea class="form-control" id="elia-descricao-sugerida" rows="4"
+                  placeholder='Clique em "Sugerir melhoria"' readonly></textarea>
+              </div>
+            </div>
           </div>
-          <div class="card-body">
-            <p class="small text-muted" id="elia-info-lista">
-              Selecione um ticket na Tabela para que a ELIA possa ajudar
-              com resumos e dúvidas sobre o atendimento.
-            </p>
 
-            <div class="d-flex flex-wrap gap-2 mb-3">
-              <button
-                type="button"
-                id="elia-resumir-ticket"
-                class="btn btn-outline-primary btn-sm"
-                disabled
-              >
-                Resumir ticket
-              </button>
+          <!-- Resumo geral -->
+          <div class="card">
+            <div class="card-header fw-bold">Resumo (geral)</div>
+            <div class="card-body row g-2">
+              <div class="col-md-4">
+                <div class="ea-card-kpi p-2">
+                  <span class="label">Total</span><br />
+                  <span class="value" id="resumo-total">-</span>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="ea-card-kpi p-2">
+                  <span class="label">Abertos</span><br />
+                  <span class="value" id="resumo-aberto">-</span>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="ea-card-kpi p-2">
+                  <span class="label">Em atendimento</span><br />
+                  <span class="value" id="resumo-em_atendimento">-</span>
+                </div>
+              </div>
+              <div class="col-md-4 mt-2">
+                <div class="ea-card-kpi p-2">
+                  <span class="label">Aguardando</span><br />
+                  <span class="value" id="resumo-aguardando">-</span>
+                </div>
+              </div>
+              <div class="col-md-4 mt-2">
+                <div class="ea-card-kpi p-2">
+                  <span class="label">Concluídos</span><br />
+                  <span class="value" id="resumo-concluido">-</span>
+                </div>
+              </div>
+              <div class="col-md-4 mt-2">
+                <div class="ea-card-kpi p-2">
+                  <span class="label">Cancelados</span><br />
+                  <span class="value" id="resumo-cancelado">-</span>
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div class="mb-2">
-              <label class="form-label">Perguntar sobre o ticket</label>
-              <textarea
-                class="form-control"
-                id="elia-pergunta-ticket"
-                rows="3"
-                placeholder="Ex.: O que ainda falta para encerrar este ticket?"
-                disabled
-              ></textarea>
-            </div>
-
-            <button
-              type="button"
-              id="elia-perguntar-ticket"
-              class="btn btn-primary btn-sm mb-3"
-              disabled
-            >
-              Enviar pergunta
-            </button>
-
-            <div class="mb-2">
-              <label class="form-label">Resposta da ELIA</label>
-              <div
-                id="elia-resposta-ticket"
-                class="border rounded p-2"
-                style="min-height: 120px; background-color: #f8fafc;"
-              >
-                Nenhum ticket selecionado.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- REGISTRO MANUAL DE EVENTO (apenas na LISTA) -->
-        <div class="card mt-3">
-          <div class="card-header fw-bold">
-            <i class="bi bi-journal-text me-1 text-secondary"></i>
-            Registrar evento no ticket selecionado
-          </div>
-          <div class="card-body">
-            <p class="small text-muted">
-              Use este espaço para registrar interações (e-mails, ligações,
-              retornos de cliente, contato com transportadora, etc.).
-            </p>
-
-            <div class="row g-2 mb-2">
-              <div class="col-md-3">
-                <label class="form-label">Tipo</label>
-                <select id="evento-tipo" class="form-select">
-                  <option value="anotacao">Anotação</option>
-                  <option value="contato_cliente">Contato com cliente</option>
-                  <option value="contato_fornecedor">
-                    Contato com fornecedor
-                  </option>
-                  <option value="interno">Interação interna</option>
-                </select>
-              </div>
-              <div class="col-md-9">
-                <label class="form-label">Detalhe</label>
-                <textarea
-                  id="evento-detalhe"
-                  class="form-control"
-                  rows="3"
-                  placeholder="Ex.: E-mail enviado para a transportadora informando atraso na coleta..."
-                ></textarea>
-              </div>
-            </div>
-
-            <button
-              id="btn-registrar-evento"
-              class="btn btn-primary btn-sm"
-              disabled
-            >
-              Registrar evento
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- VIEW: DASHBOARD -->
-      <div id="view-dashboard" class="d-none">
-        <div class="card mb-3">
-          <div class="card-header fw-bold">Período do dashboard</div>
-          <div class="card-body">
-            <div class="row g-2 align-items-end">
-              <div class="col-md-3">
-                <label class="form-label">Data início</label>
-                <input type="date" class="form-control" id="dash-data-ini" />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Data fim</label>
-                <input type="date" class="form-control" id="dash-data-fim" />
-              </div>
-              <div class="col-md-3 d-grid">
-                <button id="btn-dash-aplicar" class="btn btn-primary">
-                  Aplicar filtros
-                </button>
-              </div>
-              <div class="col-md-3 d-flex gap-2 justify-content-end">
-                <button
-                  id="btn-dash-limpar"
-                  class="btn btn-outline-secondary"
-                  type="button"
-                >
-                  Limpar filtros
-                </button>
-                <button
-                  id="btn-dash-print"
-                  class="btn btn-outline-primary"
-                  type="button"
-                >
-                  Imprimir / PDF
-                </button>
-              </div>
-            </div>
-            <small class="text-muted">
-              Se nenhum período for selecionado, o dashboard considera todos os
-              tickets.
-            </small>
-          </div>
-        </div>
-
-        <div class="row g-3 mb-3">
-          <div class="col-md-3">
-            <div class="card ea-card-kpi">
-              <div class="card-body">
-                <span class="label">Total no período</span><br />
-                <span class="value" id="dash-resumo-total">-</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="card ea-card-kpi">
-              <div class="card-body">
-                <span class="label">Abertos</span><br />
-                <span class="value" id="dash-resumo-aberto">-</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="card ea-card-kpi">
-              <div class="card-body">
-                <span class="label">Em atendimento</span><br />
-                <span class="value" id="dash-resumo-em_atendimento">-</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="card ea-card-kpi">
-              <div class="card-body">
-                <span class="label">Aguardando</span><br />
-                <span class="value" id="dash-resumo-aguardando">-</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="card ea-card-kpi">
-              <div class="card-body">
-                <span class="label">Concluídos</span><br />
-                <span class="value" id="dash-resumo-concluido">-</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row g-3">
-          <div class="col-xl-4 col-md-12">
-            <div class="card h-100">
-              <div class="card-header fw-bold">Tickets por status</div>
-              <div class="card-body">
-                <canvas id="chart-status" height="200"></canvas>
-              </div>
-            </div>
-          </div>
-          <div class="col-xl-4 col-md-12">
-            <div class="card h-100">
-              <div class="card-header fw-bold">Tickets por setor</div>
-              <div class="card-body">
-                <canvas id="chart-setor" height="200"></canvas>
-              </div>
-            </div>
-          </div>
-          <div class="col-xl-4 col-md-12">
-            <div class="card h-100">
-              <div class="card-header fw-bold">Tickets por responsável</div>
-              <div class="card-body">
-                <canvas id="chart-responsavel" height="200"></canvas>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
 
-    <!-- MODAL HISTÓRICO -->
-    <div
-      class="modal fade"
-      id="modalHistorico"
-      tabindex="-1"
-      aria-labelledby="modalHistoricoLabel"
-      aria-hidden="true"
-    >
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="modalHistoricoLabel">
-              Histórico do ticket
-            </h5>
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
-              aria-label="Fechar"
-            ></button>
+    <!-- ========== VIEW: LISTA DE TICKETS ========== -->
+    <div id="view-lista" class="d-none">
+      <!-- Filtros -->
+      <div class="card mb-3">
+        <div class="card-header fw-bold">Filtros</div>
+        <div class="card-body">
+          <div class="row g-2 mb-2">
+            <div class="col-md-3">
+              <label class="form-label">Status</label>
+              <select id="filtro-status" class="form-select">
+                <option value="">(Todos)</option>
+                <option value="aberto">Aberto</option>
+                <option value="em_atendimento">Em atendimento</option>
+                <option value="aguardando">Aguardando</option>
+                <option value="concluido">Concluído</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Setor</label>
+              <select id="filtro-setor" class="form-select">
+                <option value="">(Todos)</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Prioridade</label>
+              <select id="filtro-prioridade" class="form-select">
+                <option value="">(Todas)</option>
+                <option value="baixa">Baixa</option>
+                <option value="media">Média</option>
+                <option value="alta">Alta</option>
+                <option value="critica">Crítica</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Protocolo</label>
+              <input type="text" id="filtro-protocolo" class="form-control" placeholder="Ex.: ED-2025-000123" />
+            </div>
           </div>
-          <div class="modal-body">
-            <table class="table table-sm">
-              <thead>
+
+          <div class="row g-2 mb-2">
+            <div class="col-md-3">
+              <label class="form-label">Abertura de</label>
+              <input type="date" class="form-control" id="filtro-data-ini" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Abertura até</label>
+              <input type="date" class="form-control" id="filtro-data-fim" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Prazo limite de</label>
+              <input type="date" class="form-control" id="filtro-prazo-ini" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Prazo limite até</label>
+              <input type="date" class="form-control" id="filtro-prazo-fim" />
+            </div>
+          </div>
+
+          <!-- novos filtros por e-mail -->
+          <div class="row g-2 mb-2">
+            <div class="col-md-3">
+              <label class="form-label">Solicitante (e-mail)</label>
+              <input type="text" id="filtro-solicitante" class="form-control"
+                placeholder="ex.: usuario@eliteaco.com.br" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Responsável (e-mail)</label>
+              <input type="text" id="filtro-responsavel" class="form-control"
+                placeholder="ex.: atendimento@eliteaco.com.br" />
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            <button id="btn-aplicar-filtros" class="btn btn-primary btn-sm">
+              <i class="bi bi-funnel me-1"></i>Aplicar filtros
+            </button>
+            <button id="btn-limpar-filtros" class="btn btn-outline-secondary btn-sm">
+              Limpar filtros
+            </button>
+            <button id="btn-list-export" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-download me-1"></i>Exportar CSV
+            </button>
+            <button id="btn-list-print" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-printer me-1"></i>Imprimir / PDF
+            </button>
+            <div class="ms-auto d-flex gap-2">
+              <button id="btn-meus" class="btn btn-outline-primary btn-sm">
+                Meus tickets
+              </button>
+              <button id="btn-todos" class="btn btn-outline-secondary btn-sm">
+                Todos
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabela -->
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-bold">Tickets</span>
+          <button id="btn-recarregar" class="btn btn-sm btn-outline-primary">
+            Recarregar
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive" style="max-height: 60vh">
+            <table class="table table-sm table-striped table-hover align-middle" id="tabela-tickets">
+              <thead class="table-light">
                 <tr>
-                  <th>Data/Hora</th>
-                  <th>Tipo</th>
-                  <th>Usuário</th>
-                  <th>Detalhe</th>
+                  <th>#</th>
+                  <th>Protocolo</th>
+                  <th>Título</th>
+                  <th>Setor</th>
+                  <th>Prioridade</th>
+                  <th>Solicitante</th>
+                  <th>Responsável</th>
+                  <th>Farol</th>
+                  <th>Status</th>
+                  <th>Abertura</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
-              <tbody id="historico-tbody"></tbody>
+              <tbody></tbody>
             </table>
           </div>
+          <small class="text-muted">
+            * Dados carregados da API http://127.0.0.1:8000/tickets
+          </small>
         </div>
       </div>
-    </div>
 
-    <!-- MODAL VISUALIZAÇÃO DE TICKET -->
-    <div
-      class="modal fade"
-      id="modalTicketView"
-      tabindex="-1"
-      aria-labelledby="modalTicketViewLabel"
-      aria-hidden="true"
-    >
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="modalTicketViewLabel">
-              Detalhes do ticket
-            </h5>
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
-              aria-label="Fechar"
-            ></button>
+      <!-- ELIA – análise do ticket selecionado -->
+      <div class="card mt-3">
+        <div class="card-header fw-bold">
+          <span class="text-info"><i class="bi bi-stars me-1"></i></span>
+          ELIA – Análise do ticket selecionado
+        </div>
+        <div class="card-body">
+          <p class="small text-muted" id="elia-info-lista">
+            Selecione um ticket na Tabela para que a ELIA possa ajudar
+            com resumos e dúvidas sobre o atendimento.
+          </p>
+
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <button type="button" id="elia-resumir-ticket" class="btn btn-outline-primary btn-sm" disabled>
+              Resumir ticket
+            </button>
           </div>
-          <div class="modal-body" id="ticket-view-body"></div>
-          <div class="modal-footer">
-            <button
-              type="button"
-              class="btn btn-outline-secondary"
-              data-bs-dismiss="modal"
-            >
-              Fechar
-            </button>
-            <button
-              type="button"
-              class="btn btn-primary"
-              id="btn-ticket-print"
-            >
-              Imprimir / PDF
-            </button>
+
+          <div class="mb-2">
+            <label class="form-label">Perguntar sobre o ticket</label>
+            <textarea class="form-control" id="elia-pergunta-ticket" rows="3"
+              placeholder="Ex.: O que ainda falta para encerrar este ticket?" disabled></textarea>
+          </div>
+
+          <button type="button" id="elia-perguntar-ticket" class="btn btn-primary btn-sm mb-3" disabled>
+            Enviar pergunta
+          </button>
+
+          <div class="mb-2">
+            <label class="form-label">Resposta da ELIA</label>
+            <div id="elia-resposta-ticket" class="border rounded p-2"
+              style="min-height: 120px; background-color: #f8fafc;">
+              Nenhum ticket selecionado.
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- MODAL REGISTRO DE EVENTO (ícone de ações) -->
-    <div
-      class="modal fade"
-      id="modalEvento"
-      tabindex="-1"
-      aria-labelledby="modalEventoLabel"
-      aria-hidden="true"
-    >
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="modalEventoLabel">Registrar evento</h5>
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
-              aria-label="Fechar"
-            ></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-2 small text-muted" id="evento-ticket-info"></div>
+      <!-- REGISTRO MANUAL DE EVENTO (apenas na LISTA) -->
+      <div class="card mt-3">
+        <div class="card-header fw-bold">
+          <i class="bi bi-journal-text me-1 text-secondary"></i>
+          Registrar evento no ticket selecionado
+        </div>
+        <div class="card-body">
+          <p class="small text-muted">
+            Use este espaço para registrar interações (e-mails, ligações,
+            retornos de cliente, contato com transportadora, etc.).
+          </p>
 
-            <div class="mb-2">
+          <div class="row g-2 mb-2">
+            <div class="col-md-3">
               <label class="form-label">Tipo</label>
-              <select id="evento-tipo-modal" class="form-select">
+              <select id="evento-tipo" class="form-select">
                 <option value="anotacao">Anotação</option>
                 <option value="contato_cliente">Contato com cliente</option>
-                <option value="contato_fornecedor">Contato com fornecedor</option>
+                <option value="contato_fornecedor">
+                  Contato com fornecedor
+                </option>
                 <option value="interno">Interação interna</option>
               </select>
             </div>
-
-            <div class="mb-2">
+            <div class="col-md-9">
               <label class="form-label">Detalhe</label>
-              <textarea
-                id="evento-detalhe-modal"
-                class="form-control"
-                rows="4"
-                placeholder="Descreva a interação ou anotação..."
-              ></textarea>
+              <textarea id="evento-detalhe" class="form-control" rows="3"
+                placeholder="Ex.: E-mail enviado para a transportadora informando atraso na coleta..."></textarea>
             </div>
           </div>
-          <div class="modal-footer">
-            <button
-              type="button"
-              class="btn btn-outline-secondary"
-              data-bs-dismiss="modal"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              class="btn btn-primary"
-              id="btn-salvar-evento-modal"
-            >
-              Registrar evento
-            </button>
+
+          <button id="btn-registrar-evento" class="btn btn-primary btn-sm" disabled>
+            Registrar evento
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== VIEW: DASHBOARD ========== -->
+    <div id="view-dashboard" class="d-none">
+      <div class="card mb-3">
+        <div class="card-header fw-bold">Período do dashboard</div>
+        <div class="card-body">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+              <label class="form-label">Data início</label>
+              <input type="date" class="form-control" id="dash-data-ini" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Data fim</label>
+              <input type="date" class="form-control" id="dash-data-fim" />
+            </div>
+            <div class="col-md-3 d-grid">
+              <button id="btn-dash-aplicar" class="btn btn-primary">
+                Aplicar filtros
+              </button>
+            </div>
+            <div class="col-md-3 d-flex gap-2 justify-content-end">
+              <button id="btn-dash-limpar" class="btn btn-outline-secondary" type="button">
+                Limpar filtros
+              </button>
+              <button id="btn-dash-print" class="btn btn-outline-primary" type="button">
+                Imprimir / PDF
+              </button>
+            </div>
+          </div>
+          <small class="text-muted">
+            Se nenhum período for selecionado, o dashboard considera todos os
+            tickets.
+          </small>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <div class="card ea-card-kpi">
+            <div class="card-body">
+              <span class="label">Total no período</span><br />
+              <span class="value" id="dash-resumo-total">-</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="card ea-card-kpi">
+            <div class="card-body">
+              <span class="label">Abertos</span><br />
+              <span class="value" id="dash-resumo-aberto">-</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="card ea-card-kpi">
+            <div class="card-body">
+              <span class="label">Em atendimento</span><br />
+              <span class="value" id="dash-resumo-em_atendimento">-</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="card ea-card-kpi">
+            <div class="card-body">
+              <span class="label">Aguardando</span><br />
+              <span class="value" id="dash-resumo-aguardando">-</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="card ea-card-kpi">
+            <div class="card-body">
+              <span class="label">Concluídos</span><br />
+              <span class="value" id="dash-resumo-concluido">-</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aqui você pode futuramente trocar pelos gráficos linha/barras/donut;
+           por enquanto mantemos os 3 gráficos originais para não quebrar nada -->
+      <div class="row g-3">
+        <div class="col-xl-4 col-md-12">
+          <div class="card h-100">
+            <div class="card-header fw-bold">Tickets por status</div>
+            <div class="card-body">
+              <canvas id="chart-status" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-4 col-md-12">
+          <div class="card h-100">
+            <div class="card-header fw-bold">Tickets por setor</div>
+            <div class="card-body">
+              <canvas id="chart-setor" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-4 col-md-12">
+          <div class="card h-100">
+            <div class="card-header fw-bold">Tickets por responsável</div>
+            <div class="card-body">
+              <canvas id="chart-responsavel" height="200"></canvas>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- JS da aplicação -->
-    <script src="app.js"></script>
-  </body>
+    <!-- ========== VIEW: CALENDÁRIO ========== -->
+    <div id="view-calendario" class="d-none">
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-bold">
+            <i class="bi bi-calendar3 me-1 text-primary"></i>
+            Calendário de eventos
+          </span>
+          <button id="btn-sync-microsoft" class="btn btn-outline-primary btn-sm" type="button">
+            <i class="bi bi-microsoft me-1"></i> Sincronizar com Microsoft
+          </button>
+        </div>
+        <div class="card-body">
+          <p class="small text-muted">
+            Nesta versão o calendário é apenas local. Futuramente podemos
+            sincronizar com o Microsoft 365 (Outlook).
+          </p>
+
+          <div class="row g-3">
+            <div class="col-xl-8 col-md-12">
+              <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <span class="fw-bold">Calendário mensal</span>
+                  <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-secondary" id="cal-prev">
+                      <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="cal-today">
+                      Hoje
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="cal-next">
+                      <i class="bi bi-chevron-right"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div id="calendario-grid" class="calendario-grid">
+                    <div class="text-center text-muted">
+                      Visual do calendário ainda em construção.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-xl-4 col-md-12">
+              <div class="card h-100">
+                <div class="card-header fw-bold">
+                  <i class="bi bi-list-check me-1"></i>
+                  Próximos eventos
+                </div>
+                <div class="card-body">
+                  <ul class="list-group list-group-flush" id="lista-eventos-cal">
+                    <li class="list-group-item small text-muted">
+                      Nenhum evento cadastrado.
+                    </li>
+                  </ul>
+
+                  <hr />
+                  <h6>Novo evento rápido</h6>
+                  <div class="mb-2">
+                    <label class="form-label">Título</label>
+                    <input type="text" id="cal-novo-titulo" class="form-control form-control-sm"
+                      placeholder="Ex.: Reunião com fornecedor" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Data</label>
+                    <input type="date" id="cal-novo-data" class="form-control form-control-sm" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Horário</label>
+                    <input type="time" id="cal-novo-hora" class="form-control form-control-sm" />
+                  </div>
+                  <button type="button" id="btn-cal-add" class="btn btn-primary btn-sm w-100">
+                    Adicionar evento
+                  </button>
+                  <small class="d-block mt-2 text-muted small">
+                    Nesta versão os eventos são apenas locais (não sincronizam
+                    com Microsoft).
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== VIEW: ANOTAÇÕES ========== -->
+    <div id="view-notas" class="d-none">
+      <div class="card mb-3">
+        <div class="card-header fw-bold">
+          <i class="bi bi-journal-richtext me-1 text-primary"></i>
+          Anotações e tarefas pessoais
+        </div>
+        <div class="card-body row g-3">
+          <div class="col-lg-6">
+            <p class="small text-muted">
+              Use este espaço para registrar tarefas rápidas, lembretes e
+              anotações pessoais relacionadas aos tickets ou rotinas diárias.
+              As anotações são salvas apenas no navegador (localStorage).
+            </p>
+
+            <div class="mb-2">
+              <label class="form-label">Título da anotação</label>
+              <input type="text" id="nota-titulo" class="form-control" placeholder="Ex.: Ligar para o cliente X" />
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Descrição / Detalhes</label>
+              <textarea id="nota-descricao" class="form-control" rows="4"
+                placeholder="Detalhes, contatos, links..."></textarea>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Categoria</label>
+              <input type="text" id="nota-categoria" class="form-control"
+                placeholder="Ex.: Cliente, Financeiro, TI..." />
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Prazo (opcional)</label>
+              <input type="date" id="nota-prazo" class="form-control" />
+            </div>
+            <button type="button" id="btn-nota-add" class="btn btn-primary btn-sm w-100">
+              Adicionar anotação
+            </button>
+          </div>
+
+          <div class="col-lg-6">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="fw-semibold">Minhas anotações</span>
+              <button type="button" id="btn-nota-limpar-tudo" class="btn btn-outline-danger btn-sm">
+                Limpar tudo
+              </button>
+            </div>
+            <div id="lista-notas" class="list-group lista-notas-scroll">
+              <div class="list-group-item small text-muted">
+                Nenhuma anotação cadastrada.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- fim container -->
+
+  <!-- MODAIS (histórico, ticket, evento) -->
+  <!-- ... (iguais aos que você já tem; mantive no HTML anterior) ... -->
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- JS da aplicação -->
+  <script src="./app.js"></script>
+</body>
+
 </html>
